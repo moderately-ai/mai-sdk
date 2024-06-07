@@ -1,0 +1,56 @@
+[package]
+name = "mai-sdk-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# common dependencies
+anyhow = { workspace = true }
+tokio = { workspace = true }
+async-channel = { workspace = true }
+slog = { workspace = true }
+serde = { workspace = true }
+bincode = { workspace = true }
+nanoid = { workspace = true }
+rand = { workspace = true }
+
+# core specific dependencies
+libp2p = { git = "https://github.com/libp2p/rust-libp2p.git", branch = "master", features = [
+    # "async-std",
+    "autonat",
+    # "cbor",
+    # "dcutr",
+    "dns",
+    "ecdsa",
+    "ed25519",
+    "floodsub",
+    "gossipsub",
+    # "identify",
+    # "json",
+    "kad",
+    "macros",
+    "mdns",
+    "memory-connection-limits",
+    "metrics",
+    "noise",
+    "ping",
+    # "plaintext",
+    # "pnet",
+    "quic",
+    # "relay",
+    # "rendezvous",
+    "request-response",
+    "rsa",
+    "secp256k1",
+    "serde",
+    "tcp",
+    "tls",
+    "tokio",
+    # "uds",
+    # "wasm-bindgen",
+    # "websocket-websys",
+    "websocket",
+    # "webtransport-websys",
+    "yamux",
+    # "upnp",
+] }
