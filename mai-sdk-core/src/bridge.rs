@@ -168,3 +168,39 @@ impl Startable for EventBridge {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use slog::o;
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_handler_event() -> Result<()> {
+        let event_bridge = EventBridge::new(slog::Logger::root(slog::Discard, o!()));
+        {
+            let event_bridge = event_bridge.clone();
+            tokio::spawn(async move {
+                event_bridge.start().await.unwrap();
+            });
+        }
+
+        let handler_event = HandlerEvent::new(
+            NetworkMessage::new("test".to_string(), vec![]),
+            Some("peer_id".to_string()),
+            Some("topic".to_string()),
+        );
+
+        let first_subscriber = event_bridge.subscribe_to_handler().await;
+        let second_subscriber = event_bridge.subscribe_to_handler().await;
+
+        event_bridge
+            .publish(PublishEvents::HandlerEvent(handler_event.clone()))
+            .await?;
+
+        assert_eq!(first_subscriber.recv().await.unwrap(), handler_event);
+        assert_eq!(second_subscriber.recv().await.unwrap(), handler_event);
+
+        Ok(())
+    }
+}

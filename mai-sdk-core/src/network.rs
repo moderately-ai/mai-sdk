@@ -37,13 +37,22 @@ pub struct PeerInquiry {
     response_tx: Sender<PeerInquiryResponse>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NetworkMessage {
     /// Type of message
     pub message_type: String,
 
     /// Payload of the message
     pub payload: Vec<u8>,
+}
+
+impl NetworkMessage {
+    pub fn new(message_type: String, payload: Vec<u8>) -> Self {
+        Self {
+            message_type,
+            payload,
+        }
+    }
 }
 
 pub trait Network {
@@ -55,7 +64,7 @@ pub trait Network {
 }
 
 /// Contains information about a message received from the network
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HandlerEvent {
     message: NetworkMessage,
     peer_id: Option<PeerId>,
