@@ -1,4 +1,4 @@
-use mai_sdk_core::tasks::{Runnable, TaskId};
+use mai_sdk_core::task_queue::{Runnable, TaskId};
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use slog::{info, Logger};

@@ -1,4 +1,4 @@
-use crate::{network::PeerId, tasks::TaskId};
+use crate::{network::PeerId, task_queue::TaskId};
 use async_channel::Sender;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
