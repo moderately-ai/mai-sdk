@@ -36,8 +36,11 @@ pub struct GetEvent {
 }
 
 impl DistributedKVStore {
-    pub fn new(logger: Logger, bridge: EventBridge) -> Self {
-        DistributedKVStore { logger, bridge }
+    pub fn new(logger: &Logger, bridge: &EventBridge) -> Self {
+        DistributedKVStore {
+            logger: logger.clone(),
+            bridge: bridge.clone(),
+        }
     }
 
     pub async fn get(&self, key: String) -> Result<Option<Value>> {

@@ -111,19 +111,19 @@ impl<
     > DistributedTaskQueue<TTask, TTaskOutput, TRunnableState>
 {
     pub fn new(
-        logger: Logger,
-        local_peer_id: PeerId,
-        runnable_state: TRunnableState,
-        bridge: EventBridge,
+        logger: &Logger,
+        local_peer_id: &PeerId,
+        runnable_state: &TRunnableState,
+        bridge: &EventBridge,
     ) -> Self {
         Self {
-            logger,
-            local_peer_id,
+            logger: logger.clone(),
+            local_peer_id: local_peer_id.clone(),
             owned_tasks: Arc::new(RwLock::new(HashMap::new())),
             remote_tasks: Arc::new(RwLock::new(HashMap::new())),
             task_assignments: Arc::new(RwLock::new(HashMap::new())),
-            runnable_state,
-            bridge,
+            runnable_state: runnable_state.clone(),
+            bridge: bridge.clone(),
         }
     }
 

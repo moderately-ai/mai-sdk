@@ -1,5 +1,7 @@
 use anyhow::Result;
 use mai_sdk_core::{
+    bridge::EventBridge,
+    handler::Startable,
     network::P2PNetwork,
     storage::DistributedKVStore,
     task_queue::{DistributedTaskQueue, Runnable, TaskId},
@@ -46,6 +48,17 @@ pub struct RunnableState {
     ollama_state: OllamaPluginState,
 }
 
+impl RunnableState {
+    /// Create a new instance of the runnable state
+    pub fn new(logger: &Logger) -> Self {
+        let ollama_state = OllamaPluginState::new(logger);
+        RunnableState {
+            logger: logger.clone(),
+            ollama_state: ollama_state.clone(),
+        }
+    }
+}
+
 /// RuntimeState
 /// Holds various components of the runtime
 pub struct RuntimeState {
@@ -64,6 +77,10 @@ pub struct RuntimeState {
     /// Distributed KV Store
     /// A distributed key-value store that allows for the storage of data across the network
     distributed_kv_store: DistributedKVStore,
+
+    /// Event Bridge
+    /// A bridge that allows for the communication of events across the network
+    event_bridge: EventBridge,
 }
 
 impl RuntimeState {
@@ -73,12 +90,14 @@ impl RuntimeState {
         p2p_network: &P2PNetwork,
         distributed_task_queue: &DistributedTaskQueue<Task, TaskOutput, RunnableState>,
         distributed_kv_store: &DistributedKVStore,
+        event_bridge: &EventBridge,
     ) -> Self {
         RuntimeState {
             system_monitor: system_monitor.clone(),
             p2p_network: p2p_network.clone(),
             distributed_task_queue: distributed_task_queue.clone(),
             distributed_kv_store: distributed_kv_store.clone(),
+            event_bridge: event_bridge.clone(),
         }
     }
 
@@ -96,5 +115,37 @@ impl RuntimeState {
 
     pub fn distributed_kv_store(&self) -> &DistributedKVStore {
         &self.distributed_kv_store
+    }
+}
+
+impl Startable for RuntimeState {
+    async fn start(&self) -> Result<()> {
+        tokio::select! {
+            _ = {
+                let system_monitor = self.system_monitor.clone();
+                tokio::spawn(async move {
+                    system_monitor.start().await
+                })
+            } => {},
+            _ = {
+                let p2p_network = self.p2p_network.clone();
+                tokio::spawn(async move {
+                    p2p_network.start().await
+                })
+            } => {},
+            _ = {
+                let distributed_task_queue = self.distributed_task_queue.clone();
+                tokio::spawn(async move {
+                    distributed_task_queue.start().await
+                })
+            } => {},
+            _ = {
+                let event_bridge = self.event_bridge.clone();
+                tokio::spawn(async move {
+                    event_bridge.start().await
+                })
+            } => {},
+        }
+        Ok(())
     }
 }

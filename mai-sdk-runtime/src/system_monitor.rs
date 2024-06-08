@@ -39,11 +39,11 @@ pub struct SystemMonitor {
 
 impl SystemMonitor {
     /// Create a new instance of the system monitor
-    pub fn new(logger: Logger, local_peer_id: PeerId, kv_store: DistributedKVStore) -> Self {
+    pub fn new(logger: &Logger, local_peer_id: &PeerId, kv_store: &DistributedKVStore) -> Self {
         SystemMonitor {
-            logger,
-            local_peer_id,
-            kv_store,
+            logger: logger.clone(),
+            local_peer_id: local_peer_id.clone(),
+            kv_store: kv_store.clone(),
             polling_interval: 60,
         }
     }
@@ -119,12 +119,4 @@ impl Startable for SystemMonitor {
             tokio::time::sleep(std::time::Duration::from_secs(self.polling_interval)).await;
         }
     }
-}
-
-pub fn get_system_monitor(
-    logger: &Logger,
-    kv_store: &DistributedKVStore,
-    local_peer_id: &PeerId,
-) -> SystemMonitor {
-    SystemMonitor::new(logger.clone(), local_peer_id.clone(), kv_store.clone())
 }

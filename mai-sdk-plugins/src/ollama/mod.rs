@@ -9,8 +9,10 @@ pub struct OllamaPluginState {
 }
 
 impl OllamaPluginState {
-    pub fn new(logger: Logger) -> Self {
-        Self { logger }
+    pub fn new(logger: &Logger) -> Self {
+        Self {
+            logger: logger.clone(),
+        }
     }
 }
 

@@ -1,0 +1,27 @@
+[package]
+name = "mai-sdk-node"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# internal dependencies
+mai-sdk-core = { path = "../mai-sdk-core" }
+mai-sdk-plugins = { path = "../mai-sdk-plugins" }
+mai-sdk-runtime = { path = "../mai-sdk-runtime" }
+
+# common dependencies
+slog = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+async-channel = { workspace = true }
+
+# node dependneices
+clap = { version = "4.5.4", features = ["derive"] }
+slog-async = "2.8.0"
+slog-term = "2.9.1"
+
+[features]
+default = []
+windows = []
+linux = []
+macos = []
