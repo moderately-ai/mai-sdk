@@ -1,0 +1,23 @@
+[package]
+name = "mai-sdk-plugins"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# internal dependencies
+mai-sdk-core = { path = "../mai-sdk-core" }
+
+# common dependencies
+anyhow = { workspace = true }
+tokio = { workspace = true }
+bincode = { workspace = true }
+nanoid = { workspace = true }
+serde = { workspace = true }
+slog = { workspace = true }
+
+# plugin dependencies
+reqwest = { version = "0.12", features = ["json"], optional = true }
+
+[features]
+default = ["ollama"]
+ollama = ["reqwest"]

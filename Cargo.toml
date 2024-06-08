@@ -1,5 +1,5 @@
 [workspace]
-members = ["mai-sdk-core"]
+members = ["mai-sdk-core", "mai-sdk-plugins"]
 resolver = "2"
 
 [workspace.dependencies]
