@@ -1,0 +1,28 @@
+[package]
+name = "mai-sdk-runtime"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# internal dependencies
+mai-sdk-core = { path = "../mai-sdk-core" }
+mai-sdk-plugins = { path = "../mai-sdk-plugins" }
+
+# common dependencies
+anyhow = { workspace = true }
+async-channel = { workspace = true }
+nanoid = { workspace = true }
+rand = { workspace = true }
+serde = { workspace = true }
+slog = { workspace = true }
+bincode = { workspace = true }
+tokio = { workspace = true }
+
+# runtime dependencies
+nvml-wrapper = { version = "0.10" }
+gethostname = { version = "0.4" }
+sysinfo = { version = "0.30" }
+candle-core = { version = "0.5" }
+
+[features]
+default = []
