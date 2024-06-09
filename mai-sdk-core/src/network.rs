@@ -3,9 +3,9 @@ use async_channel::{Receiver, Sender};
 use libp2p::{
     autonat,
     futures::StreamExt,
-    gossipsub,
+    gossipsub, identify,
     kad::{self, store::MemoryStore, QueryId},
-    mdns, noise, ping,
+    mdns, noise, ping, relay,
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr,
 };
@@ -104,6 +104,10 @@ struct P2PNetworkBehaviour {
     autonat: autonat::Behaviour,
 
     kad: kad::Behaviour<MemoryStore>,
+
+    relay: relay::Behaviour,
+
+    identify: identify::Behaviour,
 }
 
 #[derive(Debug, Clone)]
@@ -213,12 +217,19 @@ impl Startable for P2PNetwork {
                 let mdns = mdns::tokio::Behaviour::new(mdns::Config::default(), local_peer_id)?;
                 let autonat = autonat::Behaviour::new(local_peer_id, Default::default());
                 let kad = kad::Behaviour::new(local_peer_id, MemoryStore::new(local_peer_id));
+                let relay = relay::Behaviour::new(local_peer_id, Default::default());
+                let identify = identify::Behaviour::new(identify::Config::new(
+                    "/TODO/0.0.1".to_string(),
+                    key.public(),
+                ));
                 Ok(P2PNetworkBehaviour {
                     gossipsub,
                     ping,
                     mdns,
                     autonat,
                     kad,
+                    relay,
+                    identify,
                 })
             })?
             .build();
@@ -331,6 +342,13 @@ impl Startable for P2PNetwork {
                             swarm.behaviour_mut().gossipsub.add_explicit_peer(&peer_id);
                             swarm.behaviour_mut().kad.add_address(&peer_id, multiaddr);
                         }
+                    },
+                    SwarmEvent::Behaviour(P2PNetworkBehaviourEvent::Identify(identify::Event::Received {
+                        peer_id,
+                        info: identify::Info { observed_addr, .. },
+                    })) => {
+                        info!(self.logger, "received identify info from {peer_id}");
+                        swarm.add_external_address(observed_addr.clone());
                     },
                     SwarmEvent::Behaviour(P2PNetworkBehaviourEvent::Mdns(mdns::Event::Expired(list))) => {
                         for (peer_id, _multiaddr) in list {

@@ -2215,6 +2215,7 @@ dependencies = [
  "libp2p-dns",
  "libp2p-floodsub",
  "libp2p-gossipsub",
+ "libp2p-identify",
  "libp2p-identity",
  "libp2p-kad",
  "libp2p-mdns",
@@ -2223,6 +2224,7 @@ dependencies = [
  "libp2p-noise",
  "libp2p-ping",
  "libp2p-quic",
+ "libp2p-relay",
  "libp2p-request-response",
  "libp2p-swarm",
  "libp2p-tcp",
@@ -2402,6 +2404,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-identify"
+version = "0.44.2"
+source = "git+https://github.com/libp2p/rust-libp2p.git?branch=master#8f42576e1a58a716eae1040a988f99d5b44ce710"
+dependencies = [
+ "asynchronous-codec",
+ "either",
+ "futures",
+ "futures-bounded",
+ "futures-timer",
+ "libp2p-core 0.41.2 (git+https://github.com/libp2p/rust-libp2p.git?branch=master)",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "lru",
+ "quick-protobuf",
+ "quick-protobuf-codec",
+ "smallvec",
+ "thiserror",
+ "tracing",
+ "void",
+]
+
+[[package]]
 name = "libp2p-identity"
 version = "0.2.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2498,9 +2522,11 @@ dependencies = [
  "instant",
  "libp2p-core 0.41.2 (git+https://github.com/libp2p/rust-libp2p.git?branch=master)",
  "libp2p-gossipsub",
+ "libp2p-identify",
  "libp2p-identity",
  "libp2p-kad",
  "libp2p-ping",
+ "libp2p-relay",
  "libp2p-swarm",
  "pin-project",
  "prometheus-client",
@@ -2569,6 +2595,30 @@ dependencies = [
  "thiserror",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "libp2p-relay"
+version = "0.17.2"
+source = "git+https://github.com/libp2p/rust-libp2p.git?branch=master#8f42576e1a58a716eae1040a988f99d5b44ce710"
+dependencies = [
+ "asynchronous-codec",
+ "bytes",
+ "either",
+ "futures",
+ "futures-bounded",
+ "futures-timer",
+ "libp2p-core 0.41.2 (git+https://github.com/libp2p/rust-libp2p.git?branch=master)",
+ "libp2p-identity",
+ "libp2p-swarm",
+ "quick-protobuf",
+ "quick-protobuf-codec",
+ "rand 0.8.5",
+ "static_assertions",
+ "thiserror",
+ "tracing",
+ "void",
+ "web-time",
 ]
 
 [[package]]
