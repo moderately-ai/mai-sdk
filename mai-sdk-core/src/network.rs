@@ -118,6 +118,9 @@ pub struct P2PNetwork {
     /// Listener addresses for the libp2p network
     listen_addrs: Vec<Multiaddr>,
 
+    /// Bootstrap addresses for the libp2p network
+    bootstrap_addrs: Vec<Multiaddr>,
+
     /// Ping interval
     ping_interval: std::time::Duration,
 
@@ -142,6 +145,7 @@ pub struct P2PNetwork {
 
 pub struct P2PNetworkConfig {
     pub listen_addrs: Vec<Multiaddr>,
+    pub bootstrap_addrs: Vec<Multiaddr>,
     pub ping_interval: std::time::Duration,
     pub gossipsub_heartbeat_interval: std::time::Duration,
     pub logger: Logger,
@@ -163,6 +167,7 @@ impl P2PNetwork {
             peer_inquiry_rx,
             peer_inquiry_tx,
             bridge: cfg.bridge,
+            bootstrap_addrs: cfg.bootstrap_addrs,
         }
     }
 }
@@ -235,6 +240,11 @@ impl Startable for P2PNetwork {
             .build();
 
         swarm.behaviour_mut().kad.set_mode(Some(kad::Mode::Server));
+
+        // Dial bootstrap nodes
+        for bootstrap_addr in self.bootstrap_addrs.iter() {
+            swarm.dial(bootstrap_addr.clone())?;
+        }
 
         // Setup local listeners
         for addr in self.listen_addrs.iter() {

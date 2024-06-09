@@ -88,7 +88,7 @@ pub struct RuntimeState {
 
     /// Distributed Task Queue
     /// A distributed task queue that allows for the execution of tasks across the network
-    distributed_task_queue: DistributedTaskQueue<Task, TaskOutput, RunnableState>,
+    distributed_task_queue: Option<DistributedTaskQueue<Task, TaskOutput, RunnableState>>,
 
     /// Distributed KV Store
     /// A distributed key-value store that allows for the storage of data across the network
@@ -101,7 +101,7 @@ pub struct RuntimeState {
 
 impl RuntimeState {
     /// Create a new instance of the runtime state
-    pub fn new(
+    pub fn new_worker(
         system_monitor: &SystemMonitor,
         p2p_network: &P2PNetwork,
         distributed_task_queue: &DistributedTaskQueue<Task, TaskOutput, RunnableState>,
@@ -111,26 +111,26 @@ impl RuntimeState {
         RuntimeState {
             system_monitor: system_monitor.clone(),
             p2p_network: p2p_network.clone(),
-            distributed_task_queue: distributed_task_queue.clone(),
+            distributed_task_queue: Some(distributed_task_queue.clone()),
             distributed_kv_store: distributed_kv_store.clone(),
             event_bridge: event_bridge.clone(),
         }
     }
 
-    pub fn system_monitor(&self) -> &SystemMonitor {
-        &self.system_monitor
-    }
-
-    pub fn p2p_network(&self) -> &P2PNetwork {
-        &self.p2p_network
-    }
-
-    pub fn distributed_task_queue(&self) -> &DistributedTaskQueue<Task, TaskOutput, RunnableState> {
-        &self.distributed_task_queue
-    }
-
-    pub fn distributed_kv_store(&self) -> &DistributedKVStore {
-        &self.distributed_kv_store
+    /// Create a new instance of the runtime state
+    pub fn new_relay(
+        system_monitor: &SystemMonitor,
+        p2p_network: &P2PNetwork,
+        distributed_kv_store: &DistributedKVStore,
+        event_bridge: &EventBridge,
+    ) -> Self {
+        RuntimeState {
+            system_monitor: system_monitor.clone(),
+            p2p_network: p2p_network.clone(),
+            distributed_task_queue: None,
+            distributed_kv_store: distributed_kv_store.clone(),
+            event_bridge: event_bridge.clone(),
+        }
     }
 }
 
@@ -152,7 +152,11 @@ impl Startable for RuntimeState {
             _ = {
                 let distributed_task_queue = self.distributed_task_queue.clone();
                 tokio::spawn(async move {
-                    distributed_task_queue.start().await
+                    if let Some(distributed_task_queue) = distributed_task_queue {
+                        distributed_task_queue.start().await
+                    } else {
+                        std::future::pending().await
+                    }
                 })
             } => {},
             _ = {

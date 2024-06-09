@@ -15,14 +15,24 @@ use std::fs::OpenOptions;
 use std::time::Duration;
 
 #[derive(Debug, Clone, ValueEnum)]
-pub enum LoggingMode {
+enum LoggingMode {
     Stdout,
     File,
     None,
 }
 
+#[derive(Debug, Clone, ValueEnum)]
+enum RuntimeVariant {
+    /// This node will join the network but will not participate in task execution
+    Relay,
+
+    /// This node will join the network and will participate in task execution
+    /// NOTE: the worker node will still be able to relay messages
+    Worker,
+}
+
 #[derive(Parser, Debug, Clone)]
-pub struct Args {
+struct Args {
     /// List of listen addresses for the network to use
     #[clap(long)]
     pub gossip_listen_addrs: Vec<String>,
@@ -35,10 +45,6 @@ pub struct Args {
     #[clap(long, default_value = "10")]
     pub gossipsub_heartbeat_interval: u64,
 
-    /// Enable interactive mode
-    #[clap(long, default_value = "false")]
-    pub interactive: bool,
-
     /// Logging mode
     #[clap(long, default_value = "none")]
     pub log_mode: LoggingMode,
@@ -48,27 +54,16 @@ pub struct Args {
     pub log_level: String,
 
     /// Log path
-    #[clap(long, default_value = "./ohmyllama.log")]
+    #[clap(long, default_value = "./debug.log")]
     pub log_path: String,
 
     /// Ping interval
     #[clap(long, default_value = "30")]
     pub ping_interval: u64,
-}
 
-impl Default for Args {
-    fn default() -> Self {
-        Self {
-            gossip_listen_addrs: vec![],
-            bootstrap_addrs: vec![],
-            gossipsub_heartbeat_interval: 10,
-            interactive: false,
-            log_mode: LoggingMode::Stdout,
-            log_level: "info".to_string(),
-            log_path: "./ohmyllama.log".to_string(),
-            ping_interval: 10,
-        }
-    }
+    /// Runtime variant
+    #[clap(long, default_value = "worker")]
+    pub runtime_variant: RuntimeVariant,
 }
 
 fn get_logger(args: &Args) -> Result<Logger> {
@@ -119,8 +114,13 @@ async fn main() -> Result<()> {
         gossipsub_heartbeat_interval: Duration::from_secs(args.gossipsub_heartbeat_interval),
         logger: logger.clone(),
         bridge: event_bridge.clone(),
+        bootstrap_addrs: args
+            .bootstrap_addrs
+            .iter()
+            .map(|a| a.parse().unwrap())
+            .collect(),
     });
-    let runnable_state = RunnableState::new(&logger);
+    let runnable_state: RunnableState = RunnableState::new(&logger);
     let distributed_task_queue = DistributedTaskQueue::new(
         &logger,
         &p2p_network.peer_id(),
@@ -131,13 +131,21 @@ async fn main() -> Result<()> {
     let system_monitor = SystemMonitor::new(&logger, &p2p_network.peer_id(), &distributed_kv_store);
 
     // Setup the runtime
-    let runtime = RuntimeState::new(
-        &system_monitor,
-        &p2p_network,
-        &distributed_task_queue,
-        &distributed_kv_store,
-        &event_bridge,
-    );
+    let runtime = match args.runtime_variant {
+        RuntimeVariant::Relay => RuntimeState::new_relay(
+            &system_monitor,
+            &p2p_network,
+            &distributed_kv_store,
+            &event_bridge,
+        ),
+        RuntimeVariant::Worker => RuntimeState::new_worker(
+            &system_monitor,
+            &p2p_network,
+            &distributed_task_queue,
+            &distributed_kv_store,
+            &event_bridge,
+        ),
+    };
 
     // Start the runtime
     runtime.start().await?;
