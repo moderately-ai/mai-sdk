@@ -6,10 +6,20 @@ use slog::{info, Logger};
 use std::path::PathBuf;
 use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
+#[derive(Debug, Clone)]
 pub struct TranscriptionPluginState {
     pub logger: Logger,
 }
 
+impl TranscriptionPluginState {
+    pub fn new(logger: &Logger) -> Self {
+        Self {
+            logger: logger.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptionPluginTaskTranscribe {
     id: TaskId,
     data: Vec<u8>,
