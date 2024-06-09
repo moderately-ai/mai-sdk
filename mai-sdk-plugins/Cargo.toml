@@ -16,8 +16,25 @@ serde = { workspace = true }
 slog = { workspace = true }
 
 # plugin dependencies
-reqwest = { version = "0.12", features = ["json"], optional = true }
+# NOTE: reqwest is configured this way to prevent openssl from being required
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "rustls-tls",
+], optional = true }
+candle-core = { git = "https://github.com/huggingface/candle.git", branch = "main", optional = true }
+whisper-rs = { git = "https://github.com/tazz4843/whisper-rs.git", branch = "master", optional = true, features = [
+    "whisper-cpp-log",
+] }
+hound = { version = "3.5.1", optional = true }
+hf-hub = { version = "0.3.2", features = ["tokio"], optional = true }
 
 [features]
-default = ["ollama"]
+default = ["ollama", "transcription"]
+
+# feature flags
 ollama = ["reqwest"]
+transcription = ["whisper-rs", "hound", "hf-hub"]
+
+# inference device flags
+metal = ["candle-core/metal", "whisper-rs/metal"]
+cuda = ["candle-core/cuda", "whisper-rs/cuda"]
