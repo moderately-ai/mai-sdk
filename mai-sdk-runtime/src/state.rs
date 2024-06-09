@@ -6,7 +6,13 @@ use mai_sdk_core::{
     storage::DistributedKVStore,
     task_queue::{DistributedTaskQueue, Runnable, TaskId},
 };
-use mai_sdk_plugins::ollama::{OllamaPluginState, OllamaPluginTask, OllamaPluginTaskOutput};
+use mai_sdk_plugins::{
+    ollama::{OllamaPluginState, OllamaPluginTask, OllamaPluginTaskOutput},
+    transcription::{
+        TranscriptionPluginState, TranscriptionPluginTaskTranscribe,
+        TranscriptionPluginTaskTranscribeOutput,
+    },
+};
 use serde::{Deserialize, Serialize};
 use slog::{info, Logger};
 
@@ -16,12 +22,21 @@ use crate::system_monitor::SystemMonitor;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Task {
     Ollama(OllamaPluginTask),
+    Transcription(TranscriptionPluginTaskTranscribe),
+}
+
+/// Collection of the variants of task outputs
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum TaskOutput {
+    Ollama(OllamaPluginTaskOutput),
+    Transcription(TranscriptionPluginTaskTranscribeOutput),
 }
 
 impl Runnable<TaskOutput, RunnableState> for Task {
     fn id(&self) -> TaskId {
         match self {
             Task::Ollama(task) => task.id(),
+            Task::Transcription(task) => task.id(),
         }
     }
 
@@ -31,14 +46,12 @@ impl Runnable<TaskOutput, RunnableState> for Task {
             Task::Ollama(ollama_task) => Ok(TaskOutput::Ollama(
                 ollama_task.run(state.ollama_state).await?,
             )),
+            Task::Transcription(transcription_task) => transcription_task
+                .run(state.transcription_state)
+                .await
+                .map(TaskOutput::Transcription),
         }
     }
-}
-
-/// Collection of the variants of task outputs
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TaskOutput {
-    Ollama(OllamaPluginTaskOutput),
 }
 
 /// State that is injected into the task's execution environment
@@ -46,15 +59,18 @@ pub enum TaskOutput {
 pub struct RunnableState {
     logger: Logger,
     ollama_state: OllamaPluginState,
+    transcription_state: TranscriptionPluginState,
 }
 
 impl RunnableState {
     /// Create a new instance of the runnable state
     pub fn new(logger: &Logger) -> Self {
         let ollama_state = OllamaPluginState::new(logger);
+        let transcription_state = TranscriptionPluginState::new(logger);
         RunnableState {
             logger: logger.clone(),
             ollama_state: ollama_state.clone(),
+            transcription_state: transcription_state.clone(),
         }
     }
 }
