@@ -3,7 +3,6 @@ use mai_sdk_core::{
     bridge::EventBridge,
     handler::Startable,
     network::P2PNetwork,
-    storage::DistributedKVStore,
     task_queue::{DistributedTaskQueue, Runnable, TaskId},
 };
 use mai_sdk_plugins::{
@@ -90,10 +89,6 @@ pub struct RuntimeState {
     /// A distributed task queue that allows for the execution of tasks across the network
     distributed_task_queue: Option<DistributedTaskQueue<Task, TaskOutput, RunnableState>>,
 
-    /// Distributed KV Store
-    /// A distributed key-value store that allows for the storage of data across the network
-    distributed_kv_store: DistributedKVStore,
-
     /// Event Bridge
     /// A bridge that allows for the communication of events across the network
     event_bridge: EventBridge,
@@ -105,14 +100,12 @@ impl RuntimeState {
         system_monitor: &SystemMonitor,
         p2p_network: &P2PNetwork,
         distributed_task_queue: &DistributedTaskQueue<Task, TaskOutput, RunnableState>,
-        distributed_kv_store: &DistributedKVStore,
         event_bridge: &EventBridge,
     ) -> Self {
         RuntimeState {
             system_monitor: system_monitor.clone(),
             p2p_network: p2p_network.clone(),
             distributed_task_queue: Some(distributed_task_queue.clone()),
-            distributed_kv_store: distributed_kv_store.clone(),
             event_bridge: event_bridge.clone(),
         }
     }
@@ -121,14 +114,12 @@ impl RuntimeState {
     pub fn new_relay(
         system_monitor: &SystemMonitor,
         p2p_network: &P2PNetwork,
-        distributed_kv_store: &DistributedKVStore,
         event_bridge: &EventBridge,
     ) -> Self {
         RuntimeState {
             system_monitor: system_monitor.clone(),
             p2p_network: p2p_network.clone(),
             distributed_task_queue: None,
-            distributed_kv_store: distributed_kv_store.clone(),
             event_bridge: event_bridge.clone(),
         }
     }

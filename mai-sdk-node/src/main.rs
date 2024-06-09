@@ -132,17 +132,13 @@ async fn main() -> Result<()> {
 
     // Setup the runtime
     let runtime = match args.runtime_variant {
-        RuntimeVariant::Relay => RuntimeState::new_relay(
-            &system_monitor,
-            &p2p_network,
-            &distributed_kv_store,
-            &event_bridge,
-        ),
+        RuntimeVariant::Relay => {
+            RuntimeState::new_relay(&system_monitor, &p2p_network, &event_bridge)
+        }
         RuntimeVariant::Worker => RuntimeState::new_worker(
             &system_monitor,
             &p2p_network,
             &distributed_task_queue,
-            &distributed_kv_store,
             &event_bridge,
         ),
     };
