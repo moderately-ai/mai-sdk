@@ -16,12 +16,17 @@ tokio = { workspace = true }
 async-channel = { workspace = true }
 
 # node dependneices
-clap = { version = "4.5.4", features = ["derive"] }
+clap = { version = "4.5.4", features = ["derive", "env"] }
 slog-async = "2.8.0"
 slog-term = "2.9.1"
+signal-hook = "0.3.17"
 
 [features]
-default = []
+# platform specific features
 windows = []
 linux = []
 macos = []
+
+# hardware specific features
+cuda = ["mai-sdk-plugins/cuda"]
+metal = ["mai-sdk-plugins/metal"]

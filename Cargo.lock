@@ -2164,6 +2164,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "keccak"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ecc2af9a1119c51f12a14607e783cb977bde58bc069ff0c3da1095e635d70654"
+dependencies = [
+ "cpufeatures",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2223,6 +2232,7 @@ dependencies = [
  "libp2p-metrics",
  "libp2p-noise",
  "libp2p-ping",
+ "libp2p-pnet",
  "libp2p-quic",
  "libp2p-relay",
  "libp2p-request-response",
@@ -2575,6 +2585,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "libp2p-pnet"
+version = "0.24.0"
+source = "git+https://github.com/libp2p/rust-libp2p.git?branch=master#8f42576e1a58a716eae1040a988f99d5b44ce710"
+dependencies = [
+ "futures",
+ "pin-project",
+ "rand 0.8.5",
+ "salsa20",
+ "sha3",
+ "tracing",
+]
+
+[[package]]
 name = "libp2p-quic"
 version = "0.10.3"
 source = "git+https://github.com/libp2p/rust-libp2p.git?branch=master#8f42576e1a58a716eae1040a988f99d5b44ce710"
@@ -2885,7 +2908,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-channel",
+ "base64 0.22.1",
  "bincode",
+ "either",
  "libp2p",
  "nanoid",
  "rand 0.8.5",
@@ -2904,6 +2929,7 @@ dependencies = [
  "mai-sdk-core",
  "mai-sdk-plugins",
  "mai-sdk-runtime",
+ "signal-hook",
  "slog",
  "slog-async",
  "slog-term",
@@ -4258,6 +4284,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "salsa20"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97a22f5af31f73a954c10289c93e8a50cc23d971e80ee446f1f6f7137a088213"
+dependencies = [
+ "cipher",
+]
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4409,10 +4444,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "sha3"
+version = "0.10.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "75872d278a8f37ef87fa0ddbda7802605cb18344497949862c0d4dcb291eba60"
+dependencies = [
+ "digest 0.10.7",
+ "keccak",
+]
+
+[[package]]
 name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "signal-hook"
+version = "0.3.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8621587d4798caf8eb44879d42e56b9a93ea5dcd315a6487c357130095b62801"
+dependencies = [
+ "libc",
+ "signal-hook-registry",
+]
+
+[[package]]
+name = "signal-hook-registry"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9e9e0b4211b72e7b8b6e85c807d36c212bdb33ea8587f7569562a84df5465b1"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "signature"

@@ -1,11 +1,16 @@
 use anyhow::{bail, Result};
 use async_channel::{Receiver, Sender};
+use base64::prelude::BASE64_STANDARD;
+use base64::Engine;
+use either::Either;
+use libp2p::pnet::PreSharedKey;
+use libp2p::Transport;
 use libp2p::{
     autonat,
     futures::StreamExt,
     gossipsub, identify,
     kad::{self, store::MemoryStore, QueryId},
-    mdns, noise, ping, relay,
+    mdns, noise, ping, pnet, relay,
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr,
 };
@@ -141,6 +146,9 @@ pub struct P2PNetwork {
 
     /// KV get requests
     kv_get_store: Arc<RwLock<HashMap<QueryId, GetEvent>>>,
+
+    /// Pre shared key for the network
+    psk: Option<pnet::PreSharedKey>,
 }
 
 pub struct P2PNetworkConfig {
@@ -150,6 +158,7 @@ pub struct P2PNetworkConfig {
     pub gossipsub_heartbeat_interval: std::time::Duration,
     pub logger: Logger,
     pub bridge: EventBridge,
+    pub psk: Option<String>,
 }
 
 impl P2PNetwork {
@@ -157,6 +166,17 @@ impl P2PNetwork {
         let keypair = libp2p::identity::Keypair::generate_ed25519();
         let (peer_inquiry_tx, peer_inquiry_rx) = async_channel::unbounded();
         let kv_get_store = Arc::new(RwLock::new(HashMap::new()));
+        let psk = if let Some(psk) = cfg.psk {
+            let psk_bytes: [u8; 32] = BASE64_STANDARD
+                .decode(psk.as_bytes())
+                .unwrap()
+                .try_into()
+                .unwrap();
+            let psk = PreSharedKey::new(psk_bytes);
+            Some(psk)
+        } else {
+            None
+        };
         Self {
             logger: cfg.logger,
             kv_get_store,
@@ -168,6 +188,7 @@ impl P2PNetwork {
             peer_inquiry_tx,
             bridge: cfg.bridge,
             bootstrap_addrs: cfg.bootstrap_addrs,
+            psk,
         }
     }
 }
@@ -193,14 +214,27 @@ async fn handle_set_event(kad: &mut kad::Behaviour<MemoryStore>, event: SetEvent
 impl Startable for P2PNetwork {
     async fn start(&self) -> Result<()> {
         info!(self.logger, "building p2p network");
+
         let mut swarm = libp2p::SwarmBuilder::with_existing_identity(self.keypair.clone())
             .with_tokio()
-            .with_tcp(
-                tcp::Config::default(),
-                noise::Config::new,
-                yamux::Config::default,
-            )?
-            .with_quic()
+            .with_other_transport(|key| {
+                let noise_config = noise::Config::new(key).unwrap();
+                let yamux_config = yamux::Config::default();
+
+                let base_transport =
+                    tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
+                let maybe_encrypted =
+                    match self.psk {
+                        Some(psk) => Either::Left(base_transport.and_then(move |socket, _| {
+                            pnet::PnetConfig::new(psk).handshake(socket)
+                        })),
+                        None => Either::Right(base_transport),
+                    };
+                maybe_encrypted
+                    .upgrade(libp2p::core::transport::upgrade::Version::V1Lazy)
+                    .authenticate(noise_config)
+                    .multiplex(yamux_config)
+            })?
             .with_behaviour(|key| {
                 let local_peer_id = key.public().to_peer_id();
                 let message_id_fn = |message: &gossipsub::Message| {

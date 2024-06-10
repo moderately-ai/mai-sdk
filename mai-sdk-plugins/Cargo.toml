@@ -34,6 +34,7 @@ default = ["ollama", "transcription"]
 # feature flags
 ollama = ["reqwest"]
 transcription = ["whisper-rs", "hound", "hf-hub"]
+text-generation = ["candle-core"]
 
 # inference device flags
 metal = ["candle-core/metal", "whisper-rs/metal"]
