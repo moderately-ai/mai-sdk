@@ -13,8 +13,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = "0.21.1"
-mai-sdk-runtime = { path = "../mai-sdk-runtime" }
-mai-sdk-core = { path = "../mai-sdk-core" }
+mai-sdk-runtime = { path = "../mai-sdk-runtime", version = "0.1.0" }
+mai-sdk-core = { path = "../mai-sdk-core", version = "0.1.0" }
 slog = { workspace = true }
 tokio = { workspace = true }
 anyhow = { workspace = true }

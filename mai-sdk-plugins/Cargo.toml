@@ -8,7 +8,7 @@ repository.workspace = true
 
 [dependencies]
 # internal dependencies
-mai-sdk-core = { path = "../mai-sdk-core" }
+mai-sdk-core = { path = "../mai-sdk-core", version = "0.1.0" }
 
 # common dependencies
 anyhow = { workspace = true }

@@ -8,9 +8,9 @@ repository.workspace = true
 
 [dependencies]
 # internal dependencies
-mai-sdk-core = { path = "../mai-sdk-core" }
-mai-sdk-plugins = { path = "../mai-sdk-plugins" }
-mai-sdk-runtime = { path = "../mai-sdk-runtime" }
+mai-sdk-core = { path = "../mai-sdk-core", version = "0.1.0" }
+mai-sdk-plugins = { path = "../mai-sdk-plugins", version = "0.1.0" }
+mai-sdk-runtime = { path = "../mai-sdk-runtime", version = "0.1.0" }
 
 # common dependencies
 slog = { workspace = true }
