@@ -2,6 +2,10 @@
 name = "mai-sdk-core"
 version = "0.1.0"
 edition = "2021"
+description = "MAI SDK Core"
+license.workspace = true
+keywords.workspace = true
+repository.workspace = true
 
 [dependencies]
 # common dependencies
