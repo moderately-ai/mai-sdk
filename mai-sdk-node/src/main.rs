@@ -1,14 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, ValueEnum};
-use mai_sdk_core::bridge::EventBridge;
 use mai_sdk_core::handler::Startable;
-use mai_sdk_core::network::Network;
-use mai_sdk_core::network::P2PNetwork;
-use mai_sdk_core::network::P2PNetworkConfig;
-use mai_sdk_core::storage::DistributedKVStore;
-use mai_sdk_core::task_queue::DistributedTaskQueue;
-use mai_sdk_runtime::state::RunnableState;
-use mai_sdk_runtime::{state::RuntimeState, system_monitor::SystemMonitor};
+use mai_sdk_runtime::state::RuntimeState;
+use mai_sdk_runtime::state::RuntimeStateArgs;
 use slog::Drain;
 use slog::Logger;
 use std::fs::OpenOptions;
@@ -107,47 +101,17 @@ async fn main() -> Result<()> {
     // Parse the command line arguments
     let args = Args::parse();
 
-    // Setup dependencies
-    let logger = get_logger(&args)?;
-    let event_bridge = EventBridge::new(logger.clone());
-    let p2p_network = P2PNetwork::new(P2PNetworkConfig {
-        listen_addrs: args
-            .gossip_listen_addrs
-            .iter()
-            .map(|a| a.parse().unwrap())
-            .collect(),
-        ping_interval: Duration::from_secs(args.ping_interval),
-        gossipsub_heartbeat_interval: Duration::from_secs(args.gossipsub_heartbeat_interval),
-        logger: logger.clone(),
-        bridge: event_bridge.clone(),
-        bootstrap_addrs: args
-            .bootstrap_addrs
-            .iter()
-            .map(|a| a.parse().unwrap())
-            .collect(),
-        psk: None,
-    });
-    let runnable_state: RunnableState = RunnableState::new(&logger);
-    let distributed_task_queue = DistributedTaskQueue::new(
-        &logger,
-        &p2p_network.peer_id(),
-        &runnable_state,
-        &event_bridge,
-    );
-    let distributed_kv_store = DistributedKVStore::new(&logger, &event_bridge);
-    let system_monitor = SystemMonitor::new(&logger, &p2p_network.peer_id(), &distributed_kv_store);
-
     // Setup the runtime
     let runtime = match args.runtime_variant {
-        RuntimeVariant::Relay => {
-            RuntimeState::new_relay(&system_monitor, &p2p_network, &event_bridge)
-        }
-        RuntimeVariant::Worker => RuntimeState::new_worker(
-            &system_monitor,
-            &p2p_network,
-            &distributed_task_queue,
-            &event_bridge,
-        ),
+        RuntimeVariant::Worker => RuntimeState::new_worker(RuntimeStateArgs {
+            logger: get_logger(&args)?,
+            listen_addrs: args.gossip_listen_addrs.clone(),
+            bootstrap_addrs: args.bootstrap_addrs.clone(),
+            ping_interval: Duration::from_secs(args.ping_interval),
+            gossipsub_heartbeat_interval: Duration::from_secs(args.gossipsub_heartbeat_interval),
+            psk: None,
+        }),
+        _ => todo!(),
     };
 
     // Start the runtime
