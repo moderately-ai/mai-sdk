@@ -23,6 +23,16 @@ pub struct WebScrapingPluginTaskScrape {
     pub enable_js: bool,
 }
 
+impl WebScrapingPluginTaskScrape {
+    pub fn new(url: String, enable_js: bool) -> Self {
+        Self {
+            id: TaskId::new(),
+            url,
+            enable_js,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct WebScrapingPluginTaskScrapeOutput {
     pub content: String,

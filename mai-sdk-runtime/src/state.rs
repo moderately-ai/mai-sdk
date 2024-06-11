@@ -165,6 +165,28 @@ impl RuntimeState {
             event_bridge: event_bridge.clone(),
         }
     }
+
+    /// Get the system monitor
+    pub fn system_monitor(&self) -> &SystemMonitor {
+        &self.system_monitor
+    }
+
+    /// Get the P2P network
+    pub fn p2p_network(&self) -> &P2PNetwork {
+        &self.p2p_network
+    }
+
+    /// Get the distributed task queue
+    pub fn distributed_task_queue(
+        &self,
+    ) -> &Option<DistributedTaskQueue<Task, TaskOutput, RunnableState>> {
+        &self.distributed_task_queue
+    }
+
+    /// Get the event bridge
+    pub fn event_bridge(&self) -> &EventBridge {
+        &self.event_bridge
+    }
 }
 
 impl Startable for RuntimeState {
