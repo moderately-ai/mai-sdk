@@ -1,19 +1,9 @@
 # MAI SDK: Build AI & ML on all devices
 
-MAI (Moderately AI) SDK (pronounced "my sdk") is a collection of tools and libraries that allow you to build AI and ML models on all devices. The SDK is designed to be lightweight and easy to use, and it is compatible with all major operating systems, mobile phones and can be used in several of the latest LLM frameworks.
+The MAI SDK is a collection of tools and libraries that enable you to build distributed AI and ML applications on all devices. It is designed to be performant, secure, and easy to use.
 
-## Getting Started
+Please see the individual directories for more information on how to use each package.
 
-### Rust
+## Project Status
 
-TODO
-
-### Python
-
-TODO
-
-## Examples
-
-To see what is possible with MAI SDK, try out [Oh My Llama](https://github.com/moderately-ai/ohmyllama), a tool that provides a distributed Ollama.
-
-You can also check out our other products and projects on our [website](https://moderately.ai).
+This project is currently in **alpha**. We are actively working on it and adding new features every day. If you have questions please reach out via the issues section.
