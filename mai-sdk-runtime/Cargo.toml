@@ -2,6 +2,9 @@
 name = "mai-sdk-runtime"
 version = "0.1.0"
 edition = "2021"
+license.workspace = true
+keywords.workspace = true
+repository.workspace = true
 
 [dependencies]
 # internal dependencies
