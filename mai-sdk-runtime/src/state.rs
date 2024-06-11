@@ -12,6 +12,9 @@ use mai_sdk_plugins::{
         TranscriptionPluginState, TranscriptionPluginTaskTranscribe,
         TranscriptionPluginTaskTranscribeOutput,
     },
+    web_scraping::{
+        WebScrapingPluginState, WebScrapingPluginTaskScrape, WebScrapingPluginTaskScrapeOutput,
+    },
 };
 use serde::{Deserialize, Serialize};
 use slog::{info, Logger};
@@ -22,7 +25,8 @@ use crate::system_monitor::SystemMonitor;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Task {
     Ollama(OllamaPluginTask),
-    Transcription(TranscriptionPluginTaskTranscribe),
+    Transcribe(TranscriptionPluginTaskTranscribe),
+    Scrape(WebScrapingPluginTaskScrape),
 }
 
 /// Collection of the variants of task outputs
@@ -30,13 +34,15 @@ pub enum Task {
 pub enum TaskOutput {
     Ollama(OllamaPluginTaskOutput),
     Transcription(TranscriptionPluginTaskTranscribeOutput),
+    Scrape(WebScrapingPluginTaskScrapeOutput),
 }
 
 impl Runnable<TaskOutput, RunnableState> for Task {
     fn id(&self) -> TaskId {
         match self {
             Task::Ollama(task) => task.id(),
-            Task::Transcription(task) => task.id(),
+            Task::Transcribe(task) => task.id(),
+            Task::Scrape(task) => task.id(),
         }
     }
 
@@ -46,10 +52,13 @@ impl Runnable<TaskOutput, RunnableState> for Task {
             Task::Ollama(ollama_task) => Ok(TaskOutput::Ollama(
                 ollama_task.run(state.ollama_state).await?,
             )),
-            Task::Transcription(transcription_task) => transcription_task
+            Task::Transcribe(transcription_task) => transcription_task
                 .run(state.transcription_state)
                 .await
                 .map(TaskOutput::Transcription),
+            Task::Scrape(web_scraping_task) => Ok(TaskOutput::Scrape(
+                web_scraping_task.run(state.web_scraping_state).await?,
+            )),
         }
     }
 }
@@ -60,17 +69,17 @@ pub struct RunnableState {
     logger: Logger,
     ollama_state: OllamaPluginState,
     transcription_state: TranscriptionPluginState,
+    web_scraping_state: WebScrapingPluginState,
 }
 
 impl RunnableState {
     /// Create a new instance of the runnable state
     pub fn new(logger: &Logger) -> Self {
-        let ollama_state = OllamaPluginState::new(logger);
-        let transcription_state = TranscriptionPluginState::new(logger);
         RunnableState {
             logger: logger.clone(),
-            ollama_state: ollama_state.clone(),
-            transcription_state: transcription_state.clone(),
+            ollama_state: OllamaPluginState::new(logger),
+            transcription_state: TranscriptionPluginState::new(logger),
+            web_scraping_state: WebScrapingPluginState::new(logger),
         }
     }
 }
