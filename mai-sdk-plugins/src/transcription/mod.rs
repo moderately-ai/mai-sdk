@@ -40,6 +40,7 @@ pub struct TranscriptionPluginTaskTranscribeOutput {
 impl TranscriptionPluginTaskTranscribe {
     pub async fn load_model(&self) -> Result<PathBuf> {
         let api = hf_hub::api::tokio::Api::new()?;
+        // TODO: parameterize model path
         let model_path = api
             .model("ggerganov/whisper.cpp".to_string())
             .get("ggml-base.en.bin")
