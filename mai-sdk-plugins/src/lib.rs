@@ -1,5 +1,5 @@
-#[cfg(feature = "ollama")]
-pub mod ollama;
+#[cfg(feature = "text_generation")]
+pub mod text_generation;
 
 #[cfg(feature = "transcription")]
 pub mod transcription;

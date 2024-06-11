@@ -7,7 +7,9 @@ use mai_sdk_core::{
     task_queue::{DistributedTaskQueue, Runnable, TaskId},
 };
 use mai_sdk_plugins::{
-    ollama::{OllamaPluginState, OllamaPluginTask, OllamaPluginTaskOutput},
+    text_generation::{
+        TextGenerationPluginState, TextGenerationPluginTask, TextGenerationPluginTaskOutput,
+    },
     transcription::{
         TranscriptionPluginState, TranscriptionPluginTaskTranscribe,
         TranscriptionPluginTaskTranscribeOutput,
@@ -24,7 +26,7 @@ use crate::system_monitor::SystemMonitor;
 /// Collection of the variants of tasks that can be executed
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Task {
-    Ollama(OllamaPluginTask),
+    TextGeneration(TextGenerationPluginTask),
     Transcribe(TranscriptionPluginTaskTranscribe),
     Scrape(WebScrapingPluginTaskScrape),
 }
@@ -32,7 +34,7 @@ pub enum Task {
 /// Collection of the variants of task outputs
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum TaskOutput {
-    Ollama(OllamaPluginTaskOutput),
+    TextGeneration(TextGenerationPluginTaskOutput),
     Transcription(TranscriptionPluginTaskTranscribeOutput),
     Scrape(WebScrapingPluginTaskScrapeOutput),
 }
@@ -40,7 +42,7 @@ pub enum TaskOutput {
 impl Runnable<TaskOutput, RunnableState> for Task {
     fn id(&self) -> TaskId {
         match self {
-            Task::Ollama(task) => task.id(),
+            Task::TextGeneration(task) => task.id(),
             Task::Transcribe(task) => task.id(),
             Task::Scrape(task) => task.id(),
         }
@@ -49,7 +51,7 @@ impl Runnable<TaskOutput, RunnableState> for Task {
     async fn run(&self, state: RunnableState) -> Result<TaskOutput> {
         info!(state.logger, "running task"; "task_id" => format!("{:?}", self.id()));
         match self {
-            Task::Ollama(ollama_task) => Ok(TaskOutput::Ollama(
+            Task::TextGeneration(ollama_task) => Ok(TaskOutput::TextGeneration(
                 ollama_task.run(state.ollama_state).await?,
             )),
             Task::Transcribe(transcription_task) => transcription_task
@@ -67,7 +69,7 @@ impl Runnable<TaskOutput, RunnableState> for Task {
 #[derive(Debug, Clone)]
 pub struct RunnableState {
     logger: Logger,
-    ollama_state: OllamaPluginState,
+    ollama_state: TextGenerationPluginState,
     transcription_state: TranscriptionPluginState,
     web_scraping_state: WebScrapingPluginState,
 }
@@ -77,7 +79,7 @@ impl RunnableState {
     pub fn new(logger: &Logger) -> Self {
         RunnableState {
             logger: logger.clone(),
-            ollama_state: OllamaPluginState::new(logger),
+            ollama_state: TextGenerationPluginState::new(logger),
             transcription_state: TranscriptionPluginState::new(logger),
             web_scraping_state: WebScrapingPluginState::new(logger),
         }
