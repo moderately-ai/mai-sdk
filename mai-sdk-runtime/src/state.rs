@@ -76,6 +76,7 @@ impl RunnableState {
 
 /// RuntimeState
 /// Holds various components of the runtime
+#[derive(Clone, Debug)]
 pub struct RuntimeState {
     /// System Monitor
     /// Periodically checks the system's status and publishes it to the network
