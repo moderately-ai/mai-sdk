@@ -6,6 +6,7 @@ members = [
     "mai-sdk-runtime",
     "mai-sdk-python",
 ]
+exclude = []
 resolver = "2"
 
 [workspace.dependencies]
