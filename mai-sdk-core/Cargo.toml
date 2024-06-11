@@ -15,7 +15,7 @@ nanoid = { workspace = true }
 rand = { workspace = true }
 
 # core specific dependencies
-libp2p = { git = "https://github.com/libp2p/rust-libp2p.git", branch = "master", version = "0.54", features = [
+libp2p = { version = "0.53", features = [
     # "async-std",
     "autonat",
     # "cbor",
