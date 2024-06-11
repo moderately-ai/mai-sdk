@@ -2,7 +2,8 @@ use anyhow::Result;
 use mai_sdk_core::{
     bridge::EventBridge,
     handler::Startable,
-    network::P2PNetwork,
+    network::{Network, P2PNetwork, P2PNetworkConfig},
+    storage::DistributedKVStore,
     task_queue::{DistributedTaskQueue, Runnable, TaskId},
 };
 use mai_sdk_plugins::{
@@ -95,14 +96,45 @@ pub struct RuntimeState {
     event_bridge: EventBridge,
 }
 
+pub struct RuntimeStateArgs {
+    pub logger: Logger,
+    pub listen_addrs: Vec<String>,
+    pub bootstrap_addrs: Vec<String>,
+    pub ping_interval: std::time::Duration,
+    pub gossipsub_heartbeat_interval: std::time::Duration,
+    pub psk: Option<String>,
+}
+
 impl RuntimeState {
     /// Create a new instance of the runtime state
-    pub fn new_worker(
-        system_monitor: &SystemMonitor,
-        p2p_network: &P2PNetwork,
-        distributed_task_queue: &DistributedTaskQueue<Task, TaskOutput, RunnableState>,
-        event_bridge: &EventBridge,
-    ) -> Self {
+    pub fn new_worker(args: RuntimeStateArgs) -> Self {
+        let event_bridge = EventBridge::new(args.logger.clone());
+        let p2p_network = P2PNetwork::new(P2PNetworkConfig {
+            logger: args.logger.clone(),
+            bridge: event_bridge.clone(),
+            listen_addrs: args
+                .listen_addrs
+                .iter()
+                .map(|a| a.parse().unwrap())
+                .collect(),
+            bootstrap_addrs: args
+                .bootstrap_addrs
+                .iter()
+                .map(|a| a.parse().unwrap())
+                .collect(),
+            ping_interval: args.ping_interval,
+            gossipsub_heartbeat_interval: args.gossipsub_heartbeat_interval,
+            psk: args.psk,
+        });
+        let distributed_kv_store = DistributedKVStore::new(&args.logger, &event_bridge);
+        let distributed_task_queue = DistributedTaskQueue::new(
+            &args.logger,
+            &p2p_network.peer_id(),
+            &RunnableState::new(&args.logger),
+            &event_bridge,
+        );
+        let system_monitor =
+            SystemMonitor::new(&args.logger, &p2p_network.peer_id(), &distributed_kv_store);
         RuntimeState {
             system_monitor: system_monitor.clone(),
             p2p_network: p2p_network.clone(),
