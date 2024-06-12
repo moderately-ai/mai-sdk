@@ -24,7 +24,7 @@ reqwest = { version = "0.12", default-features = false, features = [
     "json",
     "rustls-tls",
 ], optional = true }
-candle-core = { git = "https://github.com/huggingface/candle.git", branch = "main", optional = true }
+candle-core = { version = "0.5", optional = true }
 whisper-rs = { git = "https://github.com/tazz4843/whisper-rs.git", branch = "master", optional = true, features = [
     "whisper-cpp-log",
 ] }
