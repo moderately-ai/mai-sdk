@@ -33,12 +33,18 @@ hf-hub = { version = "0.3.2", features = ["tokio"], optional = true }
 headless_chrome = { version = "1.0", optional = true }
 
 [features]
-default = ["text_generation", "transcription", "web-scraping"]
+default = [
+    "voice_generation",
+    "text_generation",
+    "transcription",
+    "web_scraping",
+]
 
 # feature flags
 text_generation = ["reqwest"]
 transcription = ["whisper-rs", "hound", "hf-hub"]
-web-scraping = ["reqwest", "headless_chrome"]
+web_scraping = ["reqwest", "headless_chrome"]
+voice_generation = ["whisper-rs"]
 
 # inference device flags
 metal = ["candle-core/metal", "whisper-rs/metal"]
