@@ -119,7 +119,7 @@ pub struct RuntimeStateArgs {
 impl RuntimeState {
     /// Create a new instance of the runtime state
     pub fn new_worker(args: RuntimeStateArgs) -> Self {
-        let event_bridge = EventBridge::new(args.logger.clone());
+        let event_bridge = EventBridge::new(&args.logger);
         let p2p_network = P2PNetwork::new(P2PNetworkConfig {
             logger: args.logger.clone(),
             bridge: event_bridge.clone(),
@@ -143,6 +143,7 @@ impl RuntimeState {
             &p2p_network.peer_id(),
             &RunnableState::new(&args.logger),
             &event_bridge,
+            &distributed_kv_store,
         );
         let system_monitor =
             SystemMonitor::new(&args.logger, &p2p_network.peer_id(), &distributed_kv_store);

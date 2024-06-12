@@ -47,9 +47,9 @@ impl Runnable<VoiceGenerationPluginTaskOutput, VoiceGenerationPluginState>
 
     async fn run(
         &self,
-        state: VoiceGenerationPluginState,
+        _state: VoiceGenerationPluginState,
     ) -> Result<VoiceGenerationPluginTaskOutput> {
-        // TODO: i'd like to implement this with the bark model, will need to port to candle, 
+        // TODO: i'd like to implement this with the bark model, will need to port to candle,
         Ok(VoiceGenerationPluginTaskOutput { audio: vec![] })
     }
 }
