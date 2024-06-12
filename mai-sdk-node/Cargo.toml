@@ -26,10 +26,10 @@ signal-hook = "0.3.17"
 
 [features]
 # platform specific features
-windows = []
-linux = []
-macos = []
+windows = ["cuda"]
+linux = ["cuda"]
+macos = ["metal"]
 
 # hardware specific features
-cuda = ["mai-sdk-plugins/cuda"]
-metal = ["mai-sdk-plugins/metal"]
+cuda = ["mai-sdk-plugins/cuda", "mai-sdk-runtime/cuda"]
+metal = ["mai-sdk-plugins/metal", "mai-sdk-runtime/metal"]

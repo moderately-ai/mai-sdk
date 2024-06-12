@@ -545,9 +545,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "311d8dbe293aa3b5c34f6a57727fafd67d17a74fa8b65276501237c233b34ffd"
 dependencies = [
  "byteorder",
+ "candle-kernels 0.5.1",
+ "candle-metal-kernels 0.5.1",
+ "cudarc",
  "gemm",
  "half",
  "memmap2",
+ "metal",
  "num-traits",
  "num_cpus",
  "rand 0.8.5",
@@ -565,8 +569,8 @@ version = "0.6.0"
 source = "git+https://github.com/huggingface/candle.git?branch=main#9f804af29db1273f6580cc8d68b3f7a808f91ee6"
 dependencies = [
  "byteorder",
- "candle-kernels",
- "candle-metal-kernels",
+ "candle-kernels 0.6.0",
+ "candle-metal-kernels 0.6.0",
  "cudarc",
  "gemm",
  "half",
@@ -585,10 +589,31 @@ dependencies = [
 
 [[package]]
 name = "candle-kernels"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3b4b048ca298fb8be90b0f4d0fe68bdca9de956ab52bb6e381463d955f2b661"
+dependencies = [
+ "bindgen_cuda",
+]
+
+[[package]]
+name = "candle-kernels"
 version = "0.6.0"
 source = "git+https://github.com/huggingface/candle.git?branch=main#9f804af29db1273f6580cc8d68b3f7a808f91ee6"
 dependencies = [
  "bindgen_cuda",
+]
+
+[[package]]
+name = "candle-metal-kernels"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d31136c9541c82b7de0937c9a58210ada38e17d70810e0eacc0a99d849d848d"
+dependencies = [
+ "metal",
+ "once_cell",
+ "thiserror",
+ "tracing",
 ]
 
 [[package]]

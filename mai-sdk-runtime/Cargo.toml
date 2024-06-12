@@ -29,3 +29,5 @@ candle-core = { version = "0.5" }
 
 [features]
 default = []
+metal = ["candle-core/metal"]
+cuda = ["candle-core/cuda"]
