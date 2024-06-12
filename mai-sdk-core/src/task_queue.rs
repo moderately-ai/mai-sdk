@@ -23,7 +23,7 @@ use crate::{
     bridge::{EventBridge, PublishEvents},
     handler::Startable,
     network::{NetworkMessage, PeerId},
-    storage::{OwnedTasks, RemoteTasks, TaskAssignments},
+    storage::{DistributedKVStore, OwnedTasks, RemoteTasks, TaskAssignments},
 };
 
 const BID_ACCEPTANCE: &str = "bid_acceptance";
@@ -60,15 +60,11 @@ struct BidAcceptance {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TaskComplete {
     task_id: TaskId,
-    peer_id: PeerId,
-    output: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TaskProgress {
     task_id: TaskId,
-    peer_id: PeerId,
-    output: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -101,7 +97,10 @@ pub struct DistributedTaskQueue<TTask, TTaskOutput, RunnableState> {
     runnable_state: RunnableState,
 
     /// Event bridge
-    bridge: EventBridge,
+    event_bridge: EventBridge,
+
+    /// Distributed kv store
+    distributed_kv_store: DistributedKVStore,
 }
 
 impl<
@@ -115,6 +114,7 @@ impl<
         local_peer_id: &PeerId,
         runnable_state: &TRunnableState,
         bridge: &EventBridge,
+        distributed_kv_store: &DistributedKVStore,
     ) -> Self {
         Self {
             logger: logger.clone(),
@@ -123,7 +123,8 @@ impl<
             remote_tasks: Arc::new(RwLock::new(HashMap::new())),
             task_assignments: Arc::new(RwLock::new(HashMap::new())),
             runnable_state: runnable_state.clone(),
-            bridge: bridge.clone(),
+            event_bridge: bridge.clone(),
+            distributed_kv_store: distributed_kv_store.clone(),
         }
     }
 
@@ -138,7 +139,7 @@ impl<
             peer_id: self.local_peer_id.clone(),
             task: bincode::serialize(&task)?,
         };
-        self.bridge
+        self.event_bridge
             .publish(PublishEvents::NetworkMessage(NetworkMessage {
                 message_type: REQUEST_FOR_BIDS.to_string(),
                 payload: bincode::serialize(&request_for_bids)?,
@@ -163,7 +164,7 @@ impl<
 {
     async fn start(&self) -> Result<()> {
         info!(self.logger, "starting distributed task queue");
-        let handler_rx = self.bridge.subscribe_to_handler().await;
+        let handler_rx = self.event_bridge.subscribe_to_handler().await;
         loop {
             // Wait for the next handler event
             let event = handler_rx.recv().await;
@@ -171,12 +172,13 @@ impl<
                 Ok(event) => {
                     let message = event.message();
                     let logger = self.logger.clone();
-                    let bridge = self.bridge.clone();
+                    let bridge = self.event_bridge.clone();
                     let local_peer_id = self.local_peer_id.clone();
                     let remote_tasks = self.remote_tasks.clone();
                     let owned_tasks = self.owned_tasks.clone();
                     let task_assignments = self.task_assignments.clone();
                     let runnable_state = self.runnable_state.clone();
+                    let distributed_kv_store = self.distributed_kv_store.clone();
                     tokio::spawn(async move {
                         /*
                          * The happy path flow for a job is the following:
@@ -284,9 +286,15 @@ impl<
                                 }
                                 let task = task.unwrap();
 
-                                // Execute the task & the sender thread to intercept any progress messages
+                                // Execute the task and store the output in the distributed kv store
                                 let output = task.run(runnable_state.clone()).await?;
                                 info!(logger, "task complete"; "task_id" => task.id());
+
+                                // Store the output in the distributed kv store
+                                let serialized_output = bincode::serialize(&output)?;
+                                distributed_kv_store
+                                    .set(format!("taskOutput/{}", task.id()), serialized_output)
+                                    .await?;
 
                                 // Handle output
                                 bridge
@@ -295,8 +303,6 @@ impl<
                                             message_type: TASK_COMPLETE.to_string(),
                                             payload: bincode::serialize(&TaskComplete {
                                                 task_id: task.id(),
-                                                peer_id: local_peer_id.clone(),
-                                                output: bincode::serialize(&output)?,
                                             })?,
                                         },
                                     ))
@@ -316,19 +322,19 @@ impl<
                                 };
                                 if task.is_none() {
                                     debug!(logger, "task not found for task complete"; "task_id" => task_complete.task_id);
-                                    return Ok(());
-                                }
+                                };
+                                let (task, tx) = task.unwrap();
 
-                                // Notify the initializer of the output
-                                let (_, tx) = task.unwrap();
-                                tx.send(bincode::deserialize(&task_complete.output)?)
-                                    .await?;
-
-                                // Remove the task assignment
+                                // Get the output from the distributed kv store
+                                if let Some(output) = distributed_kv_store
+                                    .get(format!("taskOutput/{}", task.id()))
+                                    .await?
                                 {
-                                    let mut task_assignments = task_assignments.write().await;
-                                    task_assignments.remove(&task_complete.task_id);
-                                }
+                                    let output = bincode::deserialize::<TTaskOutput>(&output)?;
+                                    tx.send(output).await?;
+                                } else {
+                                    error!(logger, "output not found for task"; "task_id" => task.id());
+                                };
 
                                 Ok(())
                             }
@@ -354,5 +360,107 @@ impl<
                 }
             };
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use slog::Drain;
+
+    use super::*;
+    use crate::{
+        bridge::EventBridge,
+        network::{Network, P2PNetwork, P2PNetworkConfig},
+    };
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    struct TestTask {
+        id: TaskId,
+    }
+
+    impl TestTask {
+        fn new() -> Self {
+            Self {
+                id: "test".to_string(),
+            }
+        }
+    }
+
+    impl Runnable<String, ()> for TestTask {
+        fn id(&self) -> TaskId {
+            self.id.clone()
+        }
+
+        fn run(&self, _: ()) -> impl std::future::Future<Output = Result<String>> + Send {
+            async move { Ok(self.id.clone()) }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_distributed_task_queue() {
+        let logger = {
+            let decorator = slog_term::TermDecorator::new().build();
+            let drain = slog_term::FullFormat::new(decorator).build().fuse();
+            let drain = slog_async::Async::new(drain)
+                .overflow_strategy(slog_async::OverflowStrategy::Block)
+                .build()
+                .fuse();
+            slog::Logger::root(drain, slog::o!())
+        };
+
+        // Setup bridge
+        let event_bridge = EventBridge::new(&logger);
+        {
+            let event_bridge = event_bridge.clone();
+            tokio::spawn(async move {
+                event_bridge.start().await.unwrap();
+            });
+        }
+
+        // Setup network
+        let network = P2PNetwork::new(P2PNetworkConfig {
+            bootstrap_addrs: vec![],
+            listen_addrs: vec![],
+            ping_interval: std::time::Duration::from_secs(1),
+            gossipsub_heartbeat_interval: std::time::Duration::from_secs(1),
+            bridge: event_bridge.clone(),
+            logger: logger.clone(),
+            psk: None,
+        });
+        {
+            let network = network.clone();
+            tokio::spawn(async move {
+                network.start().await.unwrap();
+            });
+        }
+
+        // Setup distributed kv store
+        let distributed_kv_store = DistributedKVStore::new(&logger, &event_bridge);
+
+        // Setup the task queue
+        let runnable_state = ();
+        let task_queue = DistributedTaskQueue::new(
+            &logger,
+            &network.peer_id(),
+            &runnable_state,
+            &event_bridge,
+            &distributed_kv_store,
+        );
+        {
+            let task_queue = task_queue.clone();
+            tokio::spawn(async move {
+                task_queue.start().await.unwrap();
+            });
+        }
+
+        // TODO: obviously we don't want this, but for now this will do (in before I see this one year from now...)
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+
+        let task = TestTask::new();
+        let (tx, rx) = async_channel::bounded(1);
+        task_queue.submit_task(task, tx.clone()).await.unwrap();
+
+        let output = rx.recv().await.unwrap();
+        assert_eq!(output, "test".to_string());
     }
 }

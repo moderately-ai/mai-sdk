@@ -3196,6 +3196,8 @@ dependencies = [
  "rand 0.8.5",
  "serde",
  "slog",
+ "slog-async",
+ "slog-term",
  "tokio",
 ]
 

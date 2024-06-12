@@ -41,13 +41,13 @@ pub enum PublishEvents {
 }
 
 impl EventBridge {
-    pub fn new(logger: Logger) -> Self {
+    pub fn new(logger: &Logger) -> Self {
         let (network_tx, network_rx) = async_channel::unbounded();
         let (handler_tx, handler_rx) = async_channel::unbounded();
         let (kv_get_tx, kv_get_rx) = async_channel::unbounded();
         let (kv_set_tx, kv_set_rx) = async_channel::unbounded();
         Self {
-            logger,
+            logger: logger.clone(),
             network_channel: (network_tx, network_rx),
             network_subscribers: Arc::new(RwLock::new(vec![])),
             handler_channel: (handler_tx, handler_rx),
@@ -177,7 +177,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_handler_event() -> Result<()> {
-        let event_bridge = EventBridge::new(slog::Logger::root(slog::Discard, o!()));
+        let logger = slog::Logger::root(slog::Discard, o!());
+        let event_bridge = EventBridge::new(&logger);
         {
             let event_bridge = event_bridge.clone();
             tokio::spawn(async move {
