@@ -22,14 +22,16 @@ pub struct WebScrapingPluginTaskScrape {
     pub id: TaskId,
     pub url: String,
     pub enable_js: bool,
+    pub headless: bool,
 }
 
 impl WebScrapingPluginTaskScrape {
-    pub fn new(url: String, enable_js: bool) -> Self {
+    pub fn new(url: String, enable_js: bool, headless: bool) -> Self {
         Self {
             id: nanoid::nanoid!(),
             url,
             enable_js,
+            headless,
         }
     }
 }
@@ -53,7 +55,7 @@ impl Runnable<WebScrapingPluginTaskScrapeOutput, WebScrapingPluginState>
         let content = if self.enable_js {
             info!(state.logger, "fetching website content with javascript"; "url" => &self.url);
             let browser = headless_chrome::Browser::new(LaunchOptions {
-                headless: false,
+                headless: self.headless,
                 ..Default::default()
             })
             .unwrap();
@@ -82,6 +84,7 @@ mod tests {
             id: TaskId::new(),
             url: "https://www.google.com".to_string(),
             enable_js: false,
+            headless: true,
         };
         let output = task.run(state).await.unwrap();
         assert!(!output.content.is_empty());
@@ -96,6 +99,7 @@ mod tests {
             id: TaskId::new(),
             url: "https://www.google.com".to_string(),
             enable_js: true,
+            headless: true,
         };
         let output = task.run(state).await.unwrap();
         assert!(!output.content.is_empty());
