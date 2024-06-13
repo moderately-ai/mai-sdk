@@ -22,6 +22,16 @@ pub struct TextGenerationPluginTask {
     messages: Vec<ChatRequestMessage>,
 }
 
+impl TextGenerationPluginTask {
+    pub fn new(model: String, messages: Vec<ChatRequestMessage>) -> Self {
+        Self {
+            id: nanoid::nanoid!(),
+            model,
+            messages,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatRequestMessage {
     content: String,
@@ -36,8 +46,8 @@ impl ChatRequestMessage {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextGenerationPluginTaskOutput {
-    role: String,
-    content: String,
+    pub role: String,
+    pub content: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

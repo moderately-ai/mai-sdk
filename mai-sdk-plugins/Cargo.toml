@@ -44,7 +44,7 @@ default = [
 text_generation = ["reqwest"]
 transcription = ["whisper-rs", "hound", "hf-hub"]
 web_scraping = ["reqwest", "headless_chrome"]
-voice_generation = ["whisper-rs"]
+voice_generation = []
 
 # inference device flags
 metal = ["candle-core/metal", "whisper-rs/metal"]

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use headless_chrome::LaunchOptions;
 use mai_sdk_core::task_queue::{Runnable, TaskId};
 use serde::{Deserialize, Serialize};
 use slog::{info, Logger};
@@ -26,7 +27,7 @@ pub struct WebScrapingPluginTaskScrape {
 impl WebScrapingPluginTaskScrape {
     pub fn new(url: String, enable_js: bool) -> Self {
         Self {
-            id: TaskId::new(),
+            id: nanoid::nanoid!(),
             url,
             enable_js,
         }
@@ -51,7 +52,11 @@ impl Runnable<WebScrapingPluginTaskScrapeOutput, WebScrapingPluginState>
     ) -> Result<WebScrapingPluginTaskScrapeOutput> {
         let content = if self.enable_js {
             info!(state.logger, "fetching website content with javascript"; "url" => &self.url);
-            let browser = headless_chrome::Browser::default()?;
+            let browser = headless_chrome::Browser::new(LaunchOptions {
+                headless: false,
+                ..Default::default()
+            })
+            .unwrap();
             let tab = browser.new_tab()?;
             tab.navigate_to(&self.url)?;
             tab.wait_until_navigated()?;
