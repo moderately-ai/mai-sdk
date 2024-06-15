@@ -1,9 +1,9 @@
 use anyhow::Result;
 use mai_sdk_core::{
+    distributed_kv_store::DistributedKVStore,
     event_bridge::EventBridge,
     handler::Startable,
     network::{Network, P2PNetwork, P2PNetworkConfig},
-    distributed_kv_store::DistributedKVStore,
     task_queue::{DistributedTaskQueue, Runnable, TaskId},
 };
 use mai_sdk_plugins::{
@@ -76,11 +76,11 @@ pub struct RunnableState {
 
 impl RunnableState {
     /// Create a new instance of the runnable state
-    pub fn new(logger: &Logger) -> Self {
+    pub fn new(logger: &Logger, distributed_kv_store: &DistributedKVStore) -> Self {
         RunnableState {
             logger: logger.clone(),
             ollama_state: TextGenerationPluginState::new(logger),
-            transcription_state: TranscriptionPluginState::new(logger),
+            transcription_state: TranscriptionPluginState::new(logger, distributed_kv_store),
             web_scraping_state: WebScrapingPluginState::new(logger),
         }
     }
@@ -141,7 +141,7 @@ impl RuntimeState {
         let distributed_task_queue = DistributedTaskQueue::new(
             &args.logger,
             &p2p_network.peer_id(),
-            &RunnableState::new(&args.logger),
+            &RunnableState::new(&args.logger, &distributed_kv_store),
             &event_bridge,
             &distributed_kv_store,
         );

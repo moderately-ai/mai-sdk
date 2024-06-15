@@ -2,14 +2,23 @@ use anyhow::Result;
 
 pub type TaskId = String;
 
-/// A task that can be run and return an output
+/// A task that can be run by the task queue
 pub trait Runnable<Event, State> {
     /// a unique identifier for the task, should be unique across all tasks, nodes and plugins
     fn id(&self) -> TaskId;
 
-    /// run the task and return the output
-    /// if this method is called multiple times, it should return the same output
+    /// run the task given the parameters of the task
     fn run(&self, state: State) -> impl std::future::Future<Output = Result<Event>> + Send;
+
+    /// for the given task, fetch associated data
+    /// this is useful for tasks that require additional data to be fetched before they can be executed
+    /// TODO: look into a generic struct for this
+    fn fetch_data(
+        &self,
+        _state: State,
+    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>>> + Send {
+        async { Ok(None) }
+    }
 }
 
 use std::{collections::HashMap, sync::Arc};
