@@ -23,7 +23,7 @@ use crate::{
     bridge::{EventBridge, PublishEvents},
     handler::Startable,
     network::{NetworkMessage, PeerId},
-    storage::{DistributedKVStore, OwnedTasks, RemoteTasks, TaskAssignments},
+    storage::{DistributedKVStore, OwnedTasks, TaskAssignments},
 };
 
 const BID_ACCEPTANCE: &str = "bid_acceptance";
@@ -41,7 +41,6 @@ pub struct Initialize {
 struct RequestForBid {
     task_id: TaskId,
     peer_id: PeerId,
-    task: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -87,9 +86,6 @@ pub struct DistributedTaskQueue<TTask, TTaskOutput, RunnableState> {
     /// Tasks that are owned by the local node, these are tasks that have been submitted to the queue
     owned_tasks: OwnedTasks<TTask, TTaskOutput>,
 
-    /// Tasks that are owned by remote nodes, these are tasks that have been submitted to the queue
-    remote_tasks: RemoteTasks<TTask>,
-
     /// A map of task assignments, this is used to track which node is responsible for executing a task
     task_assignments: TaskAssignments,
 
@@ -120,7 +116,6 @@ impl<
             logger: logger.clone(),
             local_peer_id: local_peer_id.clone(),
             owned_tasks: Arc::new(RwLock::new(HashMap::new())),
-            remote_tasks: Arc::new(RwLock::new(HashMap::new())),
             task_assignments: Arc::new(RwLock::new(HashMap::new())),
             runnable_state: runnable_state.clone(),
             event_bridge: bridge.clone(),
@@ -133,11 +128,16 @@ impl<
         let mut owned_tasks = self.owned_tasks.write().await;
         owned_tasks.insert(task.id(), (task.clone(), tx.clone()));
 
+        // Store the task in the distributed kv store
+        let serialized_task = bincode::serialize(&task)?;
+        self.distributed_kv_store
+            .set(format!("task/{}", task.id()), serialized_task)
+            .await?;
+
         // Emit a request for bids event
         let request_for_bids = RequestForBid {
             task_id: task.id(),
             peer_id: self.local_peer_id.clone(),
-            task: bincode::serialize(&task)?,
         };
         self.event_bridge
             .publish(PublishEvents::NetworkMessage(NetworkMessage {
@@ -174,7 +174,6 @@ impl<
                     let logger = self.logger.clone();
                     let bridge = self.event_bridge.clone();
                     let local_peer_id = self.local_peer_id.clone();
-                    let remote_tasks = self.remote_tasks.clone();
                     let owned_tasks = self.owned_tasks.clone();
                     let task_assignments = self.task_assignments.clone();
                     let runnable_state = self.runnable_state.clone();
@@ -195,14 +194,6 @@ impl<
                                 // Deserialize the request
                                 let request_for_bid: RequestForBid =
                                     bincode::deserialize(&message.payload)?;
-                                let task = bincode::deserialize::<TTask>(&request_for_bid.task)?;
-
-                                // Store the task in the remote_tasks map for future retrieval
-                                {
-                                    let mut remote_tasks = remote_tasks.write().await;
-                                    remote_tasks
-                                        .insert(request_for_bid.task_id.clone(), task.clone());
-                                }
 
                                 // Respond with a bid for the task
                                 let bid = Bid {
@@ -274,17 +265,16 @@ impl<
                                 }
 
                                 // Get the task from the remote tasks
-                                let task = {
-                                    let mut remote_tasks = remote_tasks.write().await;
-                                    remote_tasks.remove(&bid_acceptance.task_id)
-                                };
+                                let task = distributed_kv_store
+                                    .get(format!("task/{}", bid_acceptance.task_id))
+                                    .await?;
 
                                 // TODO: emit error if task is not found and we were assigned
                                 if task.is_none() {
                                     error!(logger, "task not found for bid acceptance"; "task_id" => bid_acceptance.task_id);
                                     return Ok(());
                                 }
-                                let task = task.unwrap();
+                                let task: TTask = bincode::deserialize(&task.unwrap())?;
 
                                 // Execute the task and store the output in the distributed kv store
                                 let output = task.run(runnable_state.clone()).await?;
