@@ -61,7 +61,3 @@ libp2p = { version = "0.53", features = [
 either = "1.12"
 base64 = "0.22"
 sqlite = "0.36"
-
-[dev-dependencies]
-slog-async = "2.8.0"
-slog-term = "2.9.1"

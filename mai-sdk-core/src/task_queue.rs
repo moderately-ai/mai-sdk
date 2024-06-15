@@ -20,10 +20,10 @@ use slog::{debug, error, info, warn, Logger};
 use tokio::sync::RwLock;
 
 use crate::{
+    distributed_kv_store::{DistributedKVStore, OwnedTasks, TaskAssignments},
     event_bridge::{EventBridge, PublishEvents},
     handler::Startable,
     network::{NetworkMessage, PeerId},
-    distributed_kv_store::{DistributedKVStore, OwnedTasks, TaskAssignments},
 };
 
 const BID_ACCEPTANCE: &str = "bid_acceptance";
@@ -355,8 +355,6 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    use slog::Drain;
-
     use super::*;
     use crate::{
         event_bridge::EventBridge,
@@ -388,15 +386,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_distributed_task_queue() {
-        let logger = {
-            let decorator = slog_term::TermDecorator::new().build();
-            let drain = slog_term::FullFormat::new(decorator).build().fuse();
-            let drain = slog_async::Async::new(drain)
-                .overflow_strategy(slog_async::OverflowStrategy::Block)
-                .build()
-                .fuse();
-            slog::Logger::root(drain, slog::o!())
-        };
+        let logger = slog::Logger::root(slog::Discard, slog::o!());
 
         // Setup bridge
         let event_bridge = EventBridge::new(&logger);
