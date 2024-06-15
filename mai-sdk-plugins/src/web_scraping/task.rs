@@ -1,5 +1,5 @@
 use anyhow::Result;
-use mai_sdk_core::task_queue::{Runnable, TaskId};
+use mai_sdk_core::task_queue::{Lifecycle, Runnable, TaskId};
 use serde::{Deserialize, Serialize};
 use slog::info;
 
@@ -23,6 +23,8 @@ impl WebScrapingPluginTaskScrape {
         }
     }
 }
+
+impl Lifecycle<WebScrapingPluginState> for WebScrapingPluginTaskScrape {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct WebScrapingPluginTaskScrapeOutput {

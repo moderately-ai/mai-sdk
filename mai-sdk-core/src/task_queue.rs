@@ -3,21 +3,25 @@ use anyhow::Result;
 pub type TaskId = String;
 
 /// A task that can be run by the task queue
-pub trait Runnable<Event, State> {
+pub trait Runnable<RunnableOutput, RunnableState> {
     /// a unique identifier for the task, should be unique across all tasks, nodes and plugins
     fn id(&self) -> TaskId;
 
     /// run the task given the parameters of the task
-    fn run(&self, state: State) -> impl std::future::Future<Output = Result<Event>> + Send;
-
-    /// for the given task, fetch associated data
-    /// this is useful for tasks that require additional data to be fetched before they can be executed
-    /// TODO: look into a generic struct for this
-    fn fetch_data(
+    fn run(
         &self,
-        _state: State,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>>> + Send {
-        async { Ok(None) }
+        state: RunnableState,
+    ) -> impl std::future::Future<Output = Result<RunnableOutput>> + Send;
+}
+
+/// A lifecycle trait that can be implemented by tasks to perform actions before and after the task is executed
+pub trait Lifecycle<RunnableState> {
+    /// Called before the task is submitted to the task queue
+    fn pre_submit(
+        &self,
+        _state: &RunnableState,
+    ) -> impl std::future::Future<Output = Result<()>> + Send {
+        async { Ok(()) }
     }
 }
 
@@ -109,7 +113,7 @@ pub struct DistributedTaskQueue<TTask, TTaskOutput, RunnableState> {
 }
 
 impl<
-        TTask: Clone + Runnable<TTaskOutput, TRunnableState> + Serialize,
+        TTask: Clone + Runnable<TTaskOutput, TRunnableState> + Serialize + Lifecycle<TRunnableState>,
         TTaskOutput: Clone,
         TRunnableState: Clone,
     > DistributedTaskQueue<TTask, TTaskOutput, TRunnableState>
@@ -133,6 +137,9 @@ impl<
     }
 
     pub async fn submit_task(&self, task: TTask, tx: Sender<TTaskOutput>) -> Result<()> {
+        // Call the pre_submit lifecycle hook
+        task.pre_submit(&self.runnable_state).await?;
+
         // Store the task in the owned_tasks map
         let mut owned_tasks = self.owned_tasks.write().await;
         owned_tasks.insert(task.id(), (task.clone(), tx.clone()));
@@ -392,6 +399,8 @@ mod tests {
             async move { Ok(self.id.clone()) }
         }
     }
+
+    impl Lifecycle<()> for TestTask {}
 
     #[tokio::test]
     async fn test_distributed_task_queue() {

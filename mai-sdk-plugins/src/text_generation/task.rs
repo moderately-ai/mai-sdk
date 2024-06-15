@@ -1,4 +1,4 @@
-use mai_sdk_core::task_queue::{Runnable, TaskId};
+use mai_sdk_core::task_queue::{Lifecycle, Runnable, TaskId};
 use serde::{Deserialize, Serialize};
 use slog::info;
 
@@ -34,6 +34,8 @@ impl TextGenerationPluginTask {
         }
     }
 }
+
+impl Lifecycle<TextGenerationPluginState> for TextGenerationPluginTask {}
 
 /// TextGenerationPluginTaskOutput
 /// The output of the TextGenerationPluginTask, this will contain only the role and the generated text of the model

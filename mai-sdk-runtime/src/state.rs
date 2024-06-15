@@ -4,7 +4,7 @@ use mai_sdk_core::{
     event_bridge::EventBridge,
     handler::Startable,
     network::{Network, P2PNetwork, P2PNetworkConfig},
-    task_queue::{DistributedTaskQueue, Runnable, TaskId},
+    task_queue::{DistributedTaskQueue, Lifecycle, Runnable, TaskId},
 };
 use mai_sdk_plugins::{
     text_generation::{
@@ -61,6 +61,24 @@ impl Runnable<TaskOutput, RunnableState> for Task {
             Task::Scrape(web_scraping_task) => Ok(TaskOutput::Scrape(
                 web_scraping_task.run(state.web_scraping_state).await?,
             )),
+        }
+    }
+}
+
+impl Lifecycle<RunnableState> for Task {
+    async fn pre_submit(&self, state: &RunnableState) -> Result<()> {
+        match self {
+            Task::TextGeneration(ollama_task) => ollama_task.pre_submit(&state.ollama_state).await,
+            Task::Transcribe(transcription_task) => {
+                transcription_task
+                    .pre_submit(&state.transcription_state)
+                    .await
+            }
+            Task::Scrape(web_scraping_task) => {
+                web_scraping_task
+                    .pre_submit(&state.web_scraping_state)
+                    .await
+            }
         }
     }
 }
