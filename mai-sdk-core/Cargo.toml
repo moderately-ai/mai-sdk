@@ -58,6 +58,6 @@ libp2p = { version = "0.53", features = [
     "yamux",
     # "upnp",
 ] }
-either = "1.12"
-base64 = "0.22"
-sqlite = "0.36"
+either = "^1.12"
+base64 = "^0.22"
+sqlite = "^0.26"
