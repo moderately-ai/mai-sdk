@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use crate::{
+    distributed_kv_store::{GetEvent, SetEvent},
     handler::Startable,
     network::{HandlerEvent, NetworkMessage},
-    storage::{GetEvent, SetEvent},
 };
 use anyhow::Result;
 use async_channel::{Receiver, Sender};
@@ -20,19 +20,24 @@ type EventBridgeSubscribers<T> = Arc<RwLock<Vec<(Sender<T>, Receiver<T>)>>>;
 pub struct EventBridge {
     logger: Logger,
 
+    /// Handle network messages
     network_channel: EventBridgeChannel<NetworkMessage>,
     network_subscribers: EventBridgeSubscribers<NetworkMessage>,
 
+    /// Handle handler events
     handler_channel: EventBridgeChannel<HandlerEvent>,
     handler_subscribers: EventBridgeSubscribers<HandlerEvent>,
 
+    /// Handle key-value get events
     kv_get_channel: EventBridgeChannel<GetEvent>,
     kv_get_subscribers: EventBridgeSubscribers<GetEvent>,
 
+    /// Handle key-value set events
     kv_set_channel: EventBridgeChannel<SetEvent>,
     kv_set_subscribers: EventBridgeSubscribers<SetEvent>,
 }
 
+/// Collection of all different types of events that can be published
 pub enum PublishEvents {
     NetworkMessage(NetworkMessage),
     HandlerEvent(HandlerEvent),
@@ -41,6 +46,7 @@ pub enum PublishEvents {
 }
 
 impl EventBridge {
+    /// Creates a new EventBridge instance
     pub fn new(logger: &Logger) -> Self {
         let (network_tx, network_rx) = async_channel::unbounded();
         let (handler_tx, handler_rx) = async_channel::unbounded();
@@ -59,33 +65,23 @@ impl EventBridge {
         }
     }
 
+    /// Publishes an event to all subscribers
     pub async fn publish(&self, event: PublishEvents) -> Result<()> {
         match event {
             PublishEvents::NetworkMessage(message) => {
-                if let Err(e) = self.network_channel.0.send(message).await {
-                    return Err(anyhow::anyhow!("Failed to publish message: {:?}", e));
-                };
-                Ok(())
+                self.network_channel.0.send(message).await?;
             }
             PublishEvents::HandlerEvent(event) => {
-                if let Err(e) = self.handler_channel.0.send(event).await {
-                    return Err(anyhow::anyhow!("Failed to publish event: {:?}", e));
-                };
-                Ok(())
+                self.handler_channel.0.send(event).await?;
             }
             PublishEvents::GetEvent(event) => {
-                if let Err(e) = self.kv_get_channel.0.send(event).await {
-                    return Err(anyhow::anyhow!("Failed to publish get event: {:?}", e));
-                };
-                Ok(())
+                self.kv_get_channel.0.send(event).await?;
             }
             PublishEvents::SetEvent(event) => {
-                if let Err(e) = self.kv_set_channel.0.send(event).await {
-                    return Err(anyhow::anyhow!("Failed to publish set event: {:?}", e));
-                };
-                Ok(())
+                self.kv_set_channel.0.send(event).await?;
             }
-        }
+        };
+        Ok(())
     }
 
     pub async fn subscribe_to_network(&self) -> Receiver<NetworkMessage> {
@@ -171,13 +167,11 @@ impl Startable for EventBridge {
 
 #[cfg(test)]
 mod tests {
-    use slog::o;
-
     use super::*;
 
     #[tokio::test]
     async fn test_handler_event() -> Result<()> {
-        let logger = slog::Logger::root(slog::Discard, o!());
+        let logger = slog::Logger::root(slog::Discard, slog::o!());
         let event_bridge = EventBridge::new(&logger);
         {
             let event_bridge = event_bridge.clone();

@@ -1,9 +1,9 @@
 use anyhow::Result;
 use mai_sdk_core::{
-    bridge::EventBridge,
+    event_bridge::EventBridge,
     handler::Startable,
     network::{Network, P2PNetwork, P2PNetworkConfig},
-    storage::DistributedKVStore,
+    distributed_kv_store::DistributedKVStore,
     task_queue::{DistributedTaskQueue, Runnable, TaskId},
 };
 use mai_sdk_plugins::{

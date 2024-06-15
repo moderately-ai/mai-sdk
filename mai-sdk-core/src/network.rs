@@ -23,9 +23,9 @@ use std::{
 use tokio::{select, sync::RwLock};
 
 use crate::{
-    bridge::{EventBridge, PublishEvents},
+    event_bridge::{EventBridge, PublishEvents},
     handler::Startable,
-    storage::{GetEvent, SetEvent},
+    distributed_kv_store::{GetEvent, SetEvent},
 };
 
 use serde::{Deserialize, Serialize};
@@ -367,7 +367,7 @@ impl Startable for P2PNetwork {
                             topic: None,
                             message: event,
                         };
-                        if let Err(e) = self.bridge.publish(crate::bridge::PublishEvents::HandlerEvent(local_handler_event)).await {
+                        if let Err(e) = self.bridge.publish(crate::event_bridge::PublishEvents::HandlerEvent(local_handler_event)).await {
                             error!(self.logger, "failed to send message to handler: {e}");
                         } else {
                             info!(self.logger, "notified local");

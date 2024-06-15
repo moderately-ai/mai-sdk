@@ -1,6 +1,6 @@
 use anyhow::Result;
 use gethostname::gethostname;
-use mai_sdk_core::{handler::Startable, network::PeerId, storage::DistributedKVStore};
+use mai_sdk_core::{handler::Startable, network::PeerId, distributed_kv_store::DistributedKVStore};
 use serde::{Deserialize, Serialize};
 use slog::{error, info, Logger};
 

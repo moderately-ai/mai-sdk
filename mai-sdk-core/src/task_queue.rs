@@ -20,10 +20,10 @@ use slog::{debug, error, info, warn, Logger};
 use tokio::sync::RwLock;
 
 use crate::{
-    bridge::{EventBridge, PublishEvents},
+    event_bridge::{EventBridge, PublishEvents},
     handler::Startable,
     network::{NetworkMessage, PeerId},
-    storage::{DistributedKVStore, OwnedTasks, TaskAssignments},
+    distributed_kv_store::{DistributedKVStore, OwnedTasks, TaskAssignments},
 };
 
 const BID_ACCEPTANCE: &str = "bid_acceptance";
@@ -202,7 +202,7 @@ impl<
                                     bid: 1.0,
                                 };
                                 bridge
-                                    .publish(crate::bridge::PublishEvents::NetworkMessage(
+                                    .publish(crate::event_bridge::PublishEvents::NetworkMessage(
                                         NetworkMessage {
                                             message_type: BID.to_string(),
                                             payload: bincode::serialize(&bid)?,
@@ -237,7 +237,7 @@ impl<
 
                                 // Respond with a bid acceptance event
                                 if let Err(e) = bridge
-                                    .publish(crate::bridge::PublishEvents::NetworkMessage(
+                                    .publish(crate::event_bridge::PublishEvents::NetworkMessage(
                                         NetworkMessage {
                                             message_type: BID_ACCEPTANCE.to_string(),
                                             payload: bincode::serialize(&BidAcceptance {
@@ -288,7 +288,7 @@ impl<
 
                                 // Handle output
                                 bridge
-                                    .publish(crate::bridge::PublishEvents::NetworkMessage(
+                                    .publish(crate::event_bridge::PublishEvents::NetworkMessage(
                                         NetworkMessage {
                                             message_type: TASK_COMPLETE.to_string(),
                                             payload: bincode::serialize(&TaskComplete {
@@ -359,7 +359,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        bridge::EventBridge,
+        event_bridge::EventBridge,
         network::{Network, P2PNetwork, P2PNetworkConfig},
     };
 

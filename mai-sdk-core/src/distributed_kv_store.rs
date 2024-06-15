@@ -12,7 +12,7 @@ pub type OwnedTasks<Task, TaskOutput> = Arc<RwLock<HashMap<TaskId, (Task, Sender
 use anyhow::{bail, Result};
 use slog::{error, info, warn, Logger};
 
-use crate::bridge::EventBridge;
+use crate::event_bridge::EventBridge;
 
 #[derive(Clone)]
 pub struct DistributedKVStore {
@@ -63,7 +63,7 @@ impl DistributedKVStore {
     pub async fn get(&self, key: String) -> Result<Option<Value>> {
         // First check the local store, then remote store
         if let Some(value) = {
-            let query = format!("SELECT value FROM kv WHERE key = ?");
+            let query = "SELECT value FROM kv WHERE key = ?";
             let connection = self.connection.lock().await;
             let mut statement = connection.prepare(query)?;
             statement.bind((1, key.as_str()))?;
@@ -80,7 +80,7 @@ impl DistributedKVStore {
         let (tx, rx) = async_channel::bounded(1);
         if let Err(e) = self
             .bridge
-            .publish(crate::bridge::PublishEvents::GetEvent(GetEvent {
+            .publish(crate::event_bridge::PublishEvents::GetEvent(GetEvent {
                 key,
                 result: tx.clone(),
             }))
@@ -108,7 +108,7 @@ impl DistributedKVStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bridge::EventBridge;
+    use crate::event_bridge::EventBridge;
 
     #[tokio::test]
     async fn test_set_get() {
