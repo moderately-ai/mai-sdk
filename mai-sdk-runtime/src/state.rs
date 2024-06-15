@@ -137,7 +137,7 @@ impl RuntimeState {
             gossipsub_heartbeat_interval: args.gossipsub_heartbeat_interval,
             psk: args.psk,
         });
-        let distributed_kv_store = DistributedKVStore::new(&args.logger, &event_bridge);
+        let distributed_kv_store = DistributedKVStore::new(&args.logger, &event_bridge, true);
         let distributed_task_queue = DistributedTaskQueue::new(
             &args.logger,
             &p2p_network.peer_id(),

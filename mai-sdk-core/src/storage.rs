@@ -1,7 +1,7 @@
-use crate::{handler::Startable, network::PeerId, task_queue::TaskId};
+use crate::{network::PeerId, task_queue::TaskId};
 use async_channel::Sender;
-use std::{collections::HashMap, sync::Arc};
-use tokio::sync::RwLock;
+use std::{collections::HashMap, fmt::Debug, sync::Arc};
+use tokio::sync::{Mutex, RwLock};
 
 pub type TaskAssignments = Arc<RwLock<HashMap<TaskId, PeerId>>>;
 
@@ -10,15 +10,21 @@ pub type RemoteTasks<Task> = Arc<RwLock<HashMap<TaskId, Task>>>;
 pub type OwnedTasks<Task, TaskOutput> = Arc<RwLock<HashMap<TaskId, (Task, Sender<TaskOutput>)>>>;
 
 use anyhow::{bail, Result};
-use slog::{error, Logger};
+use slog::{error, info, warn, Logger};
 
 use crate::bridge::EventBridge;
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct DistributedKVStore {
     logger: Logger,
     bridge: EventBridge,
-    local_store: Arc<RwLock<HashMap<String, Value>>>,
+    connection: Arc<Mutex<sqlite::Connection>>,
+}
+
+impl Debug for DistributedKVStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DistributedKVStore").finish()
+    }
 }
 
 type Value = Vec<u8>;
@@ -37,20 +43,38 @@ pub struct GetEvent {
 }
 
 impl DistributedKVStore {
-    pub fn new(logger: &Logger, bridge: &EventBridge) -> Self {
-        let local_store = Arc::new(RwLock::new(HashMap::new()));
+    pub fn new(logger: &Logger, bridge: &EventBridge, persist: bool) -> Self {
+        let connection = if persist {
+            info!(logger, "Using persistent database");
+            sqlite::open("mai_sdk.sqlite").unwrap()
+        } else {
+            warn!(logger, "Using in-memory database");
+            sqlite::open(":memory:").unwrap()
+        };
+        let query = "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value BLOB)";
+        connection.execute(query).unwrap();
         DistributedKVStore {
             logger: logger.clone(),
             bridge: bridge.clone(),
-            local_store,
+            connection: Arc::new(Mutex::new(connection)),
         }
     }
 
     pub async fn get(&self, key: String) -> Result<Option<Value>> {
         // First check the local store, then remote store
-        if let Some(value) = self.local_store.read().await.get(&key) {
-            return Ok(Some(value.clone()));
-        }
+        if let Some(value) = {
+            let query = format!("SELECT value FROM kv WHERE key = ?");
+            let connection = self.connection.lock().await;
+            let mut statement = connection.prepare(query)?;
+            statement.bind((1, key.as_str()))?;
+            if let sqlite::State::Row = statement.next()? {
+                Some(statement.read(0)?)
+            } else {
+                None
+            }
+        } {
+            return Ok(Some(value));
+        };
 
         // Send a get event to the bridge then await for a response
         let (tx, rx) = async_channel::bounded(1);
@@ -70,41 +94,14 @@ impl DistributedKVStore {
 
     pub async fn set(&self, key: String, value: Value) -> Result<()> {
         // Store locally then send a set event to the bridge
-        self.local_store
-            .write()
-            .await
-            .insert(key.clone(), value.clone());
+        let connection = self.connection.lock().await;
+        let query = "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)";
+        let mut statement = connection.prepare(query)?;
+        statement.bind((1, key.as_str()))?;
+        statement.bind((2, value.as_slice()))?;
+        statement.next()?;
 
         Ok(())
-    }
-}
-
-impl Startable for DistributedKVStore {
-    async fn start(&self) -> Result<()> {
-        loop {
-            // Publish them to the network
-            for (key, value) in self.local_store.read().await.iter() {
-                let (tx, rx) = async_channel::bounded(1);
-                if let Err(e) = self
-                    .bridge
-                    .publish(crate::bridge::PublishEvents::SetEvent(SetEvent {
-                        key: key.clone(),
-                        value: value.clone(),
-                        result: tx.clone(),
-                    }))
-                    .await
-                {
-                    error!(self.logger, "Failed to send set event"; "error" => ?e);
-                    bail!(e)
-                };
-                if let Err(e) = rx.recv().await {
-                    error!(self.logger, "Failed to sync key"; "error" => ?e);
-                    bail!(e)
-                }
-            }
-
-            // Sleep for a bit
-        }
     }
 }
 
@@ -118,7 +115,7 @@ mod tests {
         let logger = slog::Logger::root(slog::Discard, slog::o!());
 
         let bridge = EventBridge::new(&logger);
-        let store = DistributedKVStore::new(&logger, &bridge);
+        let store = DistributedKVStore::new(&logger, &bridge, false);
 
         let key = "key".to_string();
         let value = vec![1, 2, 3];

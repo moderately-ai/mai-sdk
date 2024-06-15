@@ -425,7 +425,7 @@ mod tests {
         }
 
         // Setup distributed kv store
-        let distributed_kv_store = DistributedKVStore::new(&logger, &event_bridge);
+        let distributed_kv_store = DistributedKVStore::new(&logger, &event_bridge, false);
 
         // Setup the task queue
         let runnable_state = ();
