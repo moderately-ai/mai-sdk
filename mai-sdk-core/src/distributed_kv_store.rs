@@ -1,7 +1,7 @@
 use crate::{network::PeerId, task_queue::TaskId};
 use async_channel::Sender;
 use libp2p::futures::TryStreamExt;
-use sqlx::Row;
+use sqlx::{Connection, Row};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -49,8 +49,8 @@ impl DistributedKVStore {
         let connection_pool = if persist {
             info!(logger, "Using persistent database");
             sqlx::sqlite::SqlitePoolOptions::new()
-                .max_connections(1)
-                .connect_lazy("mai.db")
+                .connect("sqlite://mai_core.db?mode=rwc")
+                .await
                 .unwrap()
         } else {
             warn!(logger, "Using in-memory database");
