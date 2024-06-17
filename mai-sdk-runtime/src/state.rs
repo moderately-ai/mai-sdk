@@ -136,7 +136,7 @@ pub struct RuntimeStateArgs {
 
 impl RuntimeState {
     /// Create a new instance of the runtime state
-    pub fn new_worker(args: RuntimeStateArgs) -> Self {
+    pub async fn new_worker(args: RuntimeStateArgs) -> Self {
         let event_bridge = EventBridge::new(&args.logger);
         let p2p_network = P2PNetwork::new(P2PNetworkConfig {
             logger: args.logger.clone(),
@@ -155,7 +155,7 @@ impl RuntimeState {
             gossipsub_heartbeat_interval: args.gossipsub_heartbeat_interval,
             psk: args.psk,
         });
-        let distributed_kv_store = DistributedKVStore::new(&args.logger, &event_bridge, true);
+        let distributed_kv_store = DistributedKVStore::new(&args.logger, &event_bridge, true).await;
         let distributed_task_queue = DistributedTaskQueue::new(
             &args.logger,
             &p2p_network.peer_id(),

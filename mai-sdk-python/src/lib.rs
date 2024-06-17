@@ -16,8 +16,8 @@ pub struct PythonRuntimeArgs {
 }
 
 #[pyclass]
-#[derive(Debug, Clone)]
 pub struct PythonRuntime {
+    rt: tokio::runtime::Runtime,
     state: RuntimeState,
 }
 
@@ -50,15 +50,19 @@ impl PythonRuntime {
 #[pyfunction]
 fn start_worker(args: PythonRuntimeArgs) -> PyResult<PythonRuntime> {
     let logger = slog::Logger::root(slog::Discard, o!());
-    let state = RuntimeState::new_worker(RuntimeStateArgs {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let state = rt.block_on(RuntimeState::new_worker(RuntimeStateArgs {
         logger,
         listen_addrs: args.gossip_listen_addrs,
         bootstrap_addrs: args.bootstrap_addrs,
         gossipsub_heartbeat_interval: Duration::from_secs(args.gossipsub_heartbeat_interval),
         ping_interval: Duration::from_secs(args.ping_interval),
         psk: None,
-    });
-    Ok(PythonRuntime { state })
+    }));
+    Ok(PythonRuntime { state, rt })
 }
 
 /// A Python module implemented in Rust.

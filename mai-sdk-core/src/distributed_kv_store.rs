@@ -1,7 +1,9 @@
 use crate::{network::PeerId, task_queue::TaskId};
 use async_channel::Sender;
+use libp2p::futures::TryStreamExt;
+use sqlx::Row;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 pub type TaskAssignments = Arc<RwLock<HashMap<TaskId, PeerId>>>;
 
@@ -18,7 +20,7 @@ use crate::event_bridge::EventBridge;
 pub struct DistributedKVStore {
     logger: Logger,
     bridge: EventBridge,
-    connection: Arc<Mutex<sqlite::Connection>>,
+    connection_pool: sqlx::SqlitePool,
 }
 
 impl Debug for DistributedKVStore {
@@ -43,32 +45,53 @@ pub struct GetEvent {
 }
 
 impl DistributedKVStore {
-    pub fn new(logger: &Logger, bridge: &EventBridge, persist: bool) -> Self {
-        let connection = if persist {
+    pub async fn new(logger: &Logger, bridge: &EventBridge, persist: bool) -> Self {
+        let connection_pool = if persist {
             info!(logger, "Using persistent database");
-            sqlite::open("mai_sdk.sqlite").unwrap()
+            sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect_lazy("mai.db")
+                .unwrap()
         } else {
             warn!(logger, "Using in-memory database");
-            sqlite::open(":memory:").unwrap()
+            sqlx::sqlite::SqlitePoolOptions::new()
+                .max_connections(1)
+                .connect(":memory:")
+                .await
+                .unwrap()
         };
-        let query = "CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value BLOB)";
-        connection.execute(query).unwrap();
+
+        // initialize the kv table
+        // TODO: convert to use sqlx::migrate! macro
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS kv (
+                key TEXT PRIMARY KEY,
+                value BLOB
+            )
+            "#,
+        )
+        .execute(&connection_pool)
+        .await
+        .unwrap();
+
         DistributedKVStore {
             logger: logger.clone(),
             bridge: bridge.clone(),
-            connection: Arc::new(Mutex::new(connection)),
+            connection_pool,
         }
     }
 
     pub async fn get(&self, key: String) -> Result<Option<Value>> {
         // First check the local store, then remote store
         if let Some(value) = {
-            let query = "SELECT value FROM kv WHERE key = ?";
-            let connection = self.connection.lock().await;
-            let mut statement = connection.prepare(query)?;
-            statement.bind((1, key.as_str()))?;
-            if let sqlite::State::Row = statement.next()? {
-                Some(statement.read(0)?)
+            let mut rows = sqlx::query("SELECT value FROM kv WHERE key = ?")
+                .bind(key.clone())
+                .fetch(&self.connection_pool);
+            let row = rows.try_next().await?;
+            if let Some(row) = row {
+                let value: Vec<u8> = row.get(0);
+                Some(value)
             } else {
                 None
             }
@@ -93,14 +116,11 @@ impl DistributedKVStore {
     }
 
     pub async fn set(&self, key: String, value: Value) -> Result<()> {
-        // Store locally then send a set event to the bridge
-        let connection = self.connection.lock().await;
-        let query = "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)";
-        let mut statement = connection.prepare(query)?;
-        statement.bind((1, key.as_str()))?;
-        statement.bind((2, value.as_slice()))?;
-        statement.next()?;
-
+        sqlx::query("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)")
+            .bind(key.clone())
+            .bind(value)
+            .execute(&self.connection_pool)
+            .await?;
         Ok(())
     }
 }
@@ -115,7 +135,7 @@ mod tests {
         let logger = slog::Logger::root(slog::Discard, slog::o!());
 
         let bridge = EventBridge::new(&logger);
-        let store = DistributedKVStore::new(&logger, &bridge, false);
+        let store = DistributedKVStore::new(&logger, &bridge, false).await;
 
         let key = "key".to_string();
         let value = vec![1, 2, 3];

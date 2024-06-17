@@ -104,7 +104,8 @@ mod tests {
             &logger,
             &event_bridge,
             false,
-        );
+        )
+        .await;
         let task = TranscriptionPluginTaskTranscribe::new();
         let state = TranscriptionPluginState {
             logger,
