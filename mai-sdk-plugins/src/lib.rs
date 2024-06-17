@@ -9,3 +9,6 @@ pub mod web_scraping;
 
 #[cfg(feature = "voice_generation")]
 pub mod voice_generation;
+
+#[cfg(feature = "file_storage")]
+pub mod file_storage;

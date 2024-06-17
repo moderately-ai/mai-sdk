@@ -38,6 +38,7 @@ default = [
     "text_generation",
     "transcription",
     "web_scraping",
+    "file_storage",
 ]
 
 # feature flags
@@ -45,6 +46,7 @@ text_generation = ["reqwest"]
 transcription = ["whisper-rs", "hound", "hf-hub"]
 web_scraping = ["reqwest", "headless_chrome"]
 voice_generation = []
+file_storage = []
 
 # inference device flags
 metal = ["candle-core/metal", "whisper-rs/metal"]

@@ -1,7 +1,7 @@
 use crate::{network::PeerId, task_queue::TaskId};
 use async_channel::Sender;
 use libp2p::futures::TryStreamExt;
-use sqlx::{Connection, Row};
+use sqlx::Row;
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::RwLock;
 
