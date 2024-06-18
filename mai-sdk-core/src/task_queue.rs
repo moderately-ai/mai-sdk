@@ -27,9 +27,8 @@ pub trait Lifecycle<RunnableState> {
 
 use std::{collections::HashMap, sync::Arc};
 
-use async_channel::Sender;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use slog::{debug, error, info, warn, Logger};
+use slog::{debug, error, info, Logger};
 use tokio::sync::RwLock;
 
 use crate::{
@@ -105,8 +104,8 @@ pub struct DistributedTaskQueue<TTask, TTaskOutput, RunnableState> {
     /// Tasks that are owned by the local node, these are tasks that have been submitted to the queue
     owned_tasks: OwnedTasks<TTask, TTaskOutput>,
 
-    /// A map of task assignments, this is used to track which node is responsible for executing a task
-    task_assignments: TaskAssignments,
+    /// A map of task ids to bids for the task
+    task_bids: Arc<RwLock<HashMap<TaskId, Vec<Bid>>>>,
 
     /// State that is passed to the runnable tasks
     runnable_state: RunnableState,
@@ -135,10 +134,10 @@ impl<
             logger: logger.clone(),
             local_peer_id: local_peer_id.clone(),
             owned_tasks: Arc::new(RwLock::new(HashMap::new())),
-            task_assignments: Arc::new(RwLock::new(HashMap::new())),
             runnable_state: runnable_state.clone(),
             event_bridge: bridge.clone(),
             distributed_kv_store: distributed_kv_store.clone(),
+            task_bids: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -155,13 +154,18 @@ impl<
             owned_tasks.insert(task.id(), (task.clone(), tx.clone()));
         }
 
+        // Initialize the task in the task_bids map
+        {
+            let mut task_bids = self.task_bids.write().await;
+            task_bids.insert(task.id(), Vec::new());
+        }
+
         // Store the task in the distributed kv store
         let serialized_task = serde_json::to_vec(&task)?;
         self.distributed_kv_store
             .set(format!("task/{}", task.id()), serialized_task)
             .await?;
 
-        // Emit a request for bids event
         let request_for_bids = RequestForBid {
             task_id: task.id(),
             peer_id: self.local_peer_id.clone(),
@@ -173,10 +177,45 @@ impl<
             }))
             .await?;
 
-        // Wait for the task to complete
-        let output = rx.recv().await?;
+        // Collect bids for the task until we have a bid from at least one other node OR a timeout is reached
+        // TODO: rewrite this logic with a more robust algorithm later
+        let start = std::time::Instant::now();
+        while start.elapsed().as_secs() < 1 {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            let task_bids = self.task_bids.read().await;
+            if task_bids.get(&task.id()).unwrap().len() > 1 {
+                break;
+            }
+        }
+        let mut bids = {
+            let mut task_bids = self.task_bids.write().await;
+            task_bids.remove(&task.id()).unwrap()
+        };
 
-        Ok(output)
+        // Sort the bids by bid value and select the first
+        bids.sort_by(|a, b| a.bid.partial_cmp(&b.bid).unwrap());
+        let selected_bid = bids.first().cloned();
+        info!(self.logger, "received bids"; "bids" => format!("{:?}", bids), "selected_bid" => format!("{:?}", selected_bid));
+
+        // If we have a selected bid, emit a bid acceptance message else run the task locally
+        if let Some(selected_bid) = selected_bid {
+            // Emit bid acceptance message
+            let bid_acceptance = BidAcceptance {
+                task_id: task.id(),
+                peer_id: selected_bid.peer_id.clone(),
+            };
+            self.event_bridge
+                .publish(PublishEvents::NetworkMessage(NetworkMessage {
+                    message_type: BID_ACCEPTANCE.to_string(),
+                    payload: serde_json::to_vec(&bid_acceptance)?,
+                }))
+                .await?;
+
+            // Wait for the task to complete
+            return rx.recv().await.map_err(|e| e.into());
+        } else {
+            return task.run(self.runnable_state.clone()).await;
+        }
     }
 }
 
@@ -205,9 +244,9 @@ impl<
                     let bridge = self.event_bridge.clone();
                     let local_peer_id = self.local_peer_id.clone();
                     let owned_tasks = self.owned_tasks.clone();
-                    let task_assignments = self.task_assignments.clone();
                     let runnable_state = self.runnable_state.clone();
                     let distributed_kv_store = self.distributed_kv_store.clone();
+                    let task_bids = self.task_bids.clone();
                     tokio::spawn(async move {
                         /*
                          * The happy path flow for a job is the following:
@@ -250,40 +289,12 @@ impl<
                                 let bid: Bid = serde_json::from_slice(&message.payload)?;
 
                                 // Check if we have knowledge of the task
-                                if owned_tasks.read().await.get(&bid.task_id).is_none() {
-                                    debug!(logger, "received bid for unknown task"; "task_id" => bid.task_id);
-                                    return Ok(());
-                                }
-
-                                // Check if we have already assigned the task
-                                if task_assignments.read().await.contains_key(&bid.task_id) {
-                                    debug!(logger, "received bid for already assigned task"; "task_id" => bid.task_id);
-                                    return Ok(());
-                                }
-
-                                // Store the task assignment
-                                {
-                                    let mut task_assignments = task_assignments.write().await;
-                                    task_assignments
-                                        .insert(bid.task_id.clone(), bid.peer_id.clone());
-                                }
-
-                                // Respond with a bid acceptance event
-                                if let Err(e) = bridge
-                                    .publish(crate::event_bridge::PublishEvents::NetworkMessage(
-                                        NetworkMessage {
-                                            message_type: BID_ACCEPTANCE.to_string(),
-                                            payload: serde_json::to_vec(&BidAcceptance {
-                                                task_id: bid.task_id.clone(),
-                                                peer_id: bid.peer_id.clone(),
-                                            })?,
-                                        },
-                                    ))
+                                task_bids
+                                    .write()
                                     .await
-                                {
-                                    warn!(logger, "failed to emit bid acceptance event"; "error" => e.to_string());
-                                    return Ok(());
-                                };
+                                    .entry(bid.task_id.clone())
+                                    .or_insert_with(Vec::new)
+                                    .push(bid);
 
                                 Ok(())
                             }

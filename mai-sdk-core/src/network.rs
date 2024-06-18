@@ -378,16 +378,17 @@ impl Startable for P2PNetwork {
 
                         // Publish the network to the local handler
                         // NOTE: we do this to allow the local system to handle any jobs it has capacity for
-                        let local_handler_event = HandlerEvent {
-                            peer_id: Some(self.peer_id()),
-                            topic: None,
-                            message: event,
-                        };
-                        if let Err(e) = self.bridge.publish(crate::event_bridge::PublishEvents::HandlerEvent(local_handler_event)).await {
-                            error!(self.logger, "failed to send message to handler: {e}");
-                        } else {
-                            info!(self.logger, "notified local");
-                        };
+                        // TODO: COMMMENTED TO TEST A DIFFERENT APPROACH
+                        // let local_handler_event = HandlerEvent {
+                        //     peer_id: Some(self.peer_id()),
+                        //     topic: None,
+                        //     message: event,
+                        // };
+                        // if let Err(e) = self.bridge.publish(crate::event_bridge::PublishEvents::HandlerEvent(local_handler_event)).await {
+                        //     error!(self.logger, "failed to send message to handler: {e}");
+                        // } else {
+                        //     info!(self.logger, "notified local");
+                        // };
                     },
                     Err(e) => {
                         error!(self.logger, "publish rx channel closed: {e}");
