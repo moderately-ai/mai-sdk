@@ -358,7 +358,7 @@ impl Startable for P2PNetwork {
                 // handle new events from the publish rx channel
                 publish_event = network_rx.recv() => match publish_event {
                     Ok(event) => {
-                        let message = bincode::serialize(&event)?;
+                        let message = serde_json::to_vec(&event)?;
 
                         // Publish the network to the gossipsub network
                         if let Err(e) = swarm.behaviour_mut().gossipsub.publish(
@@ -423,9 +423,10 @@ impl Startable for P2PNetwork {
                     })) => {
                         let topic = message.topic.clone();
                         info!(self.logger, "received message {id} from {peer_id} on topic {topic}");
-                        let message = bincode::deserialize(&message.data)?;
-                        if let Err(e) = self.bridge.publish(PublishEvents::HandlerEvent(message)).await {
-                            error!(self.logger, "failed to send message to handler: {e}");
+                        if let Ok(message) = serde_json::from_slice(&message.data) {
+                            if let Err(e) = self.bridge.publish(PublishEvents::HandlerEvent(message)).await {
+                                error!(self.logger, "failed to send message to handler: {e}");
+                            };
                         };
                     },
                     SwarmEvent::NewExternalAddrOfPeer { peer_id, .. }  => {

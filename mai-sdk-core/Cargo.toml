@@ -14,7 +14,7 @@ tokio = { workspace = true }
 async-channel = { workspace = true }
 slog = { workspace = true }
 serde = { workspace = true }
-bincode = { workspace = true }
+serde_json = { workspace = true }
 nanoid = { workspace = true }
 rand = { workspace = true }
 

@@ -17,8 +17,8 @@ async-channel = { workspace = true }
 nanoid = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 slog = { workspace = true }
-bincode = { workspace = true }
 tokio = { workspace = true }
 
 # runtime dependencies

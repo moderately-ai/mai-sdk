@@ -145,7 +145,7 @@ impl<
         owned_tasks.insert(task.id(), (task.clone(), tx.clone()));
 
         // Store the task in the distributed kv store
-        let serialized_task = bincode::serialize(&task)?;
+        let serialized_task = serde_json::to_vec(&task)?;
         self.distributed_kv_store
             .set(format!("task/{}", task.id()), serialized_task)
             .await?;
@@ -158,7 +158,7 @@ impl<
         self.event_bridge
             .publish(PublishEvents::NetworkMessage(NetworkMessage {
                 message_type: REQUEST_FOR_BIDS.to_string(),
-                payload: bincode::serialize(&request_for_bids)?,
+                payload: serde_json::to_vec(&request_for_bids)?,
             }))
             .await?;
 
@@ -209,7 +209,7 @@ impl<
                             REQUEST_FOR_BIDS => {
                                 // Deserialize the request
                                 let request_for_bid: RequestForBid =
-                                    bincode::deserialize(&message.payload)?;
+                                    serde_json::from_slice(&message.payload)?;
 
                                 // Respond with a bid for the task
                                 let bid = Bid {
@@ -221,7 +221,7 @@ impl<
                                     .publish(crate::event_bridge::PublishEvents::NetworkMessage(
                                         NetworkMessage {
                                             message_type: BID.to_string(),
-                                            payload: bincode::serialize(&bid)?,
+                                            payload: serde_json::to_vec(&bid)?,
                                         },
                                     ))
                                     .await?;
@@ -230,7 +230,7 @@ impl<
                             }
                             BID => {
                                 // Deserialize the bid
-                                let bid: Bid = bincode::deserialize(&message.payload)?;
+                                let bid: Bid = serde_json::from_slice(&message.payload)?;
 
                                 // Check if we have knowledge of the task
                                 if owned_tasks.read().await.get(&bid.task_id).is_none() {
@@ -256,7 +256,7 @@ impl<
                                     .publish(crate::event_bridge::PublishEvents::NetworkMessage(
                                         NetworkMessage {
                                             message_type: BID_ACCEPTANCE.to_string(),
-                                            payload: bincode::serialize(&BidAcceptance {
+                                            payload: serde_json::to_vec(&BidAcceptance {
                                                 task_id: bid.task_id.clone(),
                                                 peer_id: bid.peer_id.clone(),
                                             })?,
@@ -272,7 +272,7 @@ impl<
                             }
                             BID_ACCEPTANCE => {
                                 let bid_acceptance: BidAcceptance =
-                                    bincode::deserialize(&message.payload)?;
+                                    serde_json::from_slice(&message.payload)?;
 
                                 // Only act on the event if we are the accepted node
                                 if bid_acceptance.peer_id != local_peer_id {
@@ -290,14 +290,14 @@ impl<
                                     error!(logger, "task not found for bid acceptance"; "task_id" => bid_acceptance.task_id);
                                     return Ok(());
                                 }
-                                let task: TTask = bincode::deserialize(&task.unwrap())?;
+                                let task: TTask = serde_json::from_slice(&task.unwrap())?;
 
                                 // Execute the task and store the output in the distributed kv store
                                 let output = task.run(runnable_state.clone()).await?;
                                 info!(logger, "task complete"; "task_id" => task.id());
 
                                 // Store the output in the distributed kv store
-                                let serialized_output = bincode::serialize(&output)?;
+                                let serialized_output = serde_json::to_vec(&output)?;
                                 distributed_kv_store
                                     .set(format!("taskOutput/{}", task.id()), serialized_output)
                                     .await?;
@@ -307,7 +307,7 @@ impl<
                                     .publish(crate::event_bridge::PublishEvents::NetworkMessage(
                                         NetworkMessage {
                                             message_type: TASK_COMPLETE.to_string(),
-                                            payload: bincode::serialize(&TaskComplete {
+                                            payload: serde_json::to_vec(&TaskComplete {
                                                 task_id: task.id(),
                                             })?,
                                         },
@@ -319,7 +319,7 @@ impl<
                             TASK_COMPLETE => {
                                 // Deserialize the task complete event
                                 let task_complete: TaskComplete =
-                                    bincode::deserialize(&message.payload)?;
+                                    serde_json::from_slice(&message.payload)?;
 
                                 // Lookup the task from the owned tasks map
                                 let task = {
@@ -336,7 +336,7 @@ impl<
                                     .get(format!("taskOutput/{}", task.id()))
                                     .await?
                                 {
-                                    let output = bincode::deserialize::<TTaskOutput>(&output)?;
+                                    let output = serde_json::from_slice::<TTaskOutput>(&output)?;
                                     tx.send(output).await?;
                                 } else {
                                     error!(logger, "output not found for task"; "task_id" => task.id());
@@ -346,7 +346,7 @@ impl<
                             }
                             TASK_ERROR => {
                                 let task_error =
-                                    bincode::deserialize::<TaskError>(&message.payload)?;
+                                    serde_json::from_slice::<TaskError>(&message.payload)?;
                                 if owned_tasks.read().await.get(&task_error.task_id).is_none() {
                                     debug!(logger, "received task error for unknown task"; "task_id" => task_error.task_id);
                                     return Ok(());

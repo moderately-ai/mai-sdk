@@ -1,6 +1,6 @@
 use anyhow::Result;
 use gethostname::gethostname;
-use mai_sdk_core::{handler::Startable, network::PeerId, distributed_kv_store::DistributedKVStore};
+use mai_sdk_core::{distributed_kv_store::DistributedKVStore, handler::Startable, network::PeerId};
 use serde::{Deserialize, Serialize};
 use slog::{error, info, Logger};
 
@@ -107,7 +107,7 @@ impl Startable for SystemMonitor {
 
             // Store the system status in the kv store
             let key = format!("systemStatus/{}", self.local_peer_id);
-            let value = bincode::serialize(&system_status)?;
+            let value = serde_json::to_vec(&system_status)?;
             if let Err(e) = self.kv_store.set(key, value).await {
                 error!(
                     self.logger,

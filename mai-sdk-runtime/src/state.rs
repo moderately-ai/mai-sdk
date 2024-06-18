@@ -19,7 +19,7 @@ use mai_sdk_plugins::{
     },
 };
 use serde::{Deserialize, Serialize};
-use slog::{error, info, warn, Logger};
+use slog::{debug, error, info, warn, Logger};
 
 use crate::system_monitor::SystemMonitor;
 
@@ -211,7 +211,8 @@ impl Startable for RuntimeState {
                     let logger = self.logger.clone();
                     tokio::spawn(async move {
                         if let Err(e) = system_monitor.start().await {
-                            error!(logger, "Failed to start system monitor: {:?}", e);
+                            error!(logger, "system monitor crashed: {:?}", e);
+                            debug!(logger, "trace: {:?}", e.backtrace());
                         } else {
                             warn!(logger, "System monitor exited");
                         }
@@ -222,7 +223,8 @@ impl Startable for RuntimeState {
                     let logger = self.logger.clone();
                     tokio::spawn(async move {
                         if let Err(e) = p2p_network.start().await {
-                            error!(logger, "Failed to start p2p network: {:?}", e);
+                            error!(logger, "p2p network crashed: {:?}", e);
+                            debug!(logger, "trace: {:?}", e.backtrace());
                         } else {
                             warn!(logger, "P2P network exited");
                         }
@@ -234,7 +236,8 @@ impl Startable for RuntimeState {
                     tokio::spawn(async move {
                         if let Some(distributed_task_queue) = distributed_task_queue {
                             if let Err(e) = distributed_task_queue.start().await {
-                                error!(logger, "Failed to start distributed task queue: {:?}", e);
+                                error!(logger, "distributed task queue crashed: {:?}", e);
+                                debug!(logger, "trace: {:?}", e.backtrace());
                             } else {
                                 warn!(logger, "Distributed task queue exited");
                             }
@@ -248,7 +251,8 @@ impl Startable for RuntimeState {
                     let logger = self.logger.clone();
                     tokio::spawn(async move {
                         if let Err(e) = event_bridge.start().await {
-                            error!(logger, "Failed to start event bridge: {:?}", e);
+                            error!(logger, "event bridge crashed: {:?}", e);
+                            debug!(logger, "trace: {:?}", e.backtrace());
                         } else {
                             warn!(logger, "Event bridge exited");
                         }

@@ -13,9 +13,9 @@ mai-sdk-core = { path = "../mai-sdk-core", version = "0.1.0" }
 # common dependencies
 anyhow = { workspace = true }
 tokio = { workspace = true }
-bincode = { workspace = true }
 nanoid = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
 slog = { workspace = true }
 
 # plugin dependencies
