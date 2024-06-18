@@ -63,7 +63,6 @@ mod tests {
     #[tokio::test]
     async fn test_file_storage_plugin_task_get() {
         let project_root = env!("CARGO_MANIFEST_DIR");
-        println!("Project root: {}", project_root);
         let path = format!("{}/src/file_storage/test_data/sample.txt", project_root);
 
         let logger = slog::Logger::root(slog::Discard, slog::o!());

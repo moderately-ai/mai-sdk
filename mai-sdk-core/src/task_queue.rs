@@ -57,6 +57,12 @@ struct RequestForBid {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct SolicitForBid {
+    task_id: TaskId,
+    peer_ids: Vec<PeerId>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Bid {
     task_id: TaskId,
     peer_id: PeerId,
@@ -136,13 +142,18 @@ impl<
         }
     }
 
-    pub async fn submit_task(&self, task: TTask, tx: Sender<TTaskOutput>) -> Result<()> {
+    pub async fn execute_task(&self, task: TTask) -> Result<TTaskOutput> {
+        // Setup the communication channel
+        let (tx, rx) = async_channel::bounded(1);
+
         // Call the pre_submit lifecycle hook
         task.pre_submit(&self.runnable_state).await?;
 
         // Store the task in the owned_tasks map
-        let mut owned_tasks = self.owned_tasks.write().await;
-        owned_tasks.insert(task.id(), (task.clone(), tx.clone()));
+        {
+            let mut owned_tasks = self.owned_tasks.write().await;
+            owned_tasks.insert(task.id(), (task.clone(), tx.clone()));
+        }
 
         // Store the task in the distributed kv store
         let serialized_task = serde_json::to_vec(&task)?;
@@ -162,7 +173,10 @@ impl<
             }))
             .await?;
 
-        Ok::<_, anyhow::Error>(())
+        // Wait for the task to complete
+        let output = rx.recv().await?;
+
+        Ok(output)
     }
 }
 
@@ -229,6 +243,9 @@ impl<
                                 Ok::<_, anyhow::Error>(())
                             }
                             BID => {
+                                // We want to ensure there is a chance that non-owning nodes can bid on tasks, as such
+                                // we will wait for a period of time before claiming the task for ourselves
+
                                 // Deserialize the bid
                                 let bid: Bid = serde_json::from_slice(&message.payload)?;
 
@@ -372,6 +389,8 @@ impl<
 
 #[cfg(test)]
 mod tests {
+    use core::panic;
+
     use super::*;
     use crate::{
         event_bridge::EventBridge,
@@ -413,6 +432,7 @@ mod tests {
             let event_bridge = event_bridge.clone();
             tokio::spawn(async move {
                 event_bridge.start().await.unwrap();
+                panic!("event bridge stopped");
             });
         }
 
@@ -430,6 +450,7 @@ mod tests {
             let network = network.clone();
             tokio::spawn(async move {
                 network.start().await.unwrap();
+                panic!("network stopped");
             });
         }
 
@@ -449,17 +470,15 @@ mod tests {
             let task_queue = task_queue.clone();
             tokio::spawn(async move {
                 task_queue.start().await.unwrap();
+                panic!("task queue stopped");
             });
         }
 
         // TODO: obviously we don't want this, but for now this will do (in before I see this one year from now...)
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-
         let task = TestTask::new();
-        let (tx, rx) = async_channel::bounded(1);
-        task_queue.submit_task(task, tx.clone()).await.unwrap();
+        let output = task_queue.execute_task(task).await.unwrap();
 
-        let output = rx.recv().await.unwrap();
         assert_eq!(output, "test".to_string());
     }
 }

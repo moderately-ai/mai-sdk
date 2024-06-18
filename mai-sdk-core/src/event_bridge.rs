@@ -38,6 +38,7 @@ pub struct EventBridge {
 }
 
 /// Collection of all different types of events that can be published
+#[derive(Clone, Debug)]
 pub enum PublishEvents {
     NetworkMessage(NetworkMessage),
     HandlerEvent(HandlerEvent),

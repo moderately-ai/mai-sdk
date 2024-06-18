@@ -505,7 +505,7 @@ impl Startable for P2PNetwork {
                                 );
                             }
                             kad::QueryResult::StartProviding(Err(err)) => {
-                                eprintln!("Failed to put provider record: {err:?}");
+                                error!(self.logger, "Failed to put provider record: {err:?}");
                             }
                             _ => {}
                         }
