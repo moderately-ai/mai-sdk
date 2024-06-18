@@ -136,6 +136,9 @@ impl DistributedKVStore {
             error!(self.logger, "Failed to send set event"; "error" => ?e);
             bail!(e)
         };
+        if let Err(e) = rx.recv().await {
+            warn!(self.logger, "Failed to set value in distributed hash table"; "error" => ?e);
+        };
         Ok(())
     }
 }
