@@ -231,13 +231,21 @@ impl Startable for P2PNetwork {
 
                 let base_transport =
                     tcp::tokio::Transport::new(tcp::Config::default().nodelay(true));
-                let maybe_encrypted =
-                    match self.psk {
-                        Some(psk) => Either::Left(base_transport.and_then(move |socket, _| {
+                let maybe_encrypted = match self.psk {
+                    Some(psk) => {
+                        info!(self.logger, "using pre shared key for network encryption");
+                        Either::Left(base_transport.and_then(move |socket, _| {
                             pnet::PnetConfig::new(psk).handshake(socket)
-                        })),
-                        None => Either::Right(base_transport),
-                    };
+                        }))
+                    }
+                    None => {
+                        warn!(
+                            self.logger,
+                            "no pre shared key provided, network will not be encrypted"
+                        );
+                        Either::Right(base_transport)
+                    }
+                };
                 maybe_encrypted
                     .upgrade(libp2p::core::transport::upgrade::Version::V1Lazy)
                     .authenticate(noise_config)

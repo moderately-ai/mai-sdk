@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use mai_sdk_core::handler::Startable;
-use mai_sdk_runtime::state::{RuntimeState, RuntimeStateArgs};
+use mai_sdk_runtime::{RuntimeState, RuntimeStateArgs};
 use pyo3::prelude::*;
 use slog::o;
 
