@@ -23,9 +23,9 @@ use std::{
 use tokio::{select, sync::RwLock};
 
 use crate::{
+    distributed_kv_store::{GetEvent, SetEvent},
     event_bridge::{EventBridge, PublishEvents},
     handler::Startable,
-    distributed_kv_store::{GetEvent, SetEvent},
 };
 
 use serde::{Deserialize, Serialize};
@@ -190,6 +190,14 @@ impl P2PNetwork {
             bootstrap_addrs: cfg.bootstrap_addrs,
             psk,
         }
+    }
+
+    pub fn listen_addrs(&self) -> Vec<String> {
+        self.listen_addrs.iter().map(|a| a.to_string()).collect()
+    }
+
+    pub fn bootstrap_addrs(&self) -> Vec<String> {
+        self.bootstrap_addrs.iter().map(|a| a.to_string()).collect()
     }
 }
 
