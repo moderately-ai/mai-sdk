@@ -328,6 +328,7 @@ impl<
                                 };
                                 if task.is_none() {
                                     debug!(logger, "task not found for task complete"; "task_id" => task_complete.task_id);
+                                    return Ok(());
                                 };
                                 let (task, tx) = task.unwrap();
 
