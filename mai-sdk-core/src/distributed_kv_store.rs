@@ -1,7 +1,7 @@
-use crate::{network::PeerId, task_queue::TaskId};
+use crate::{handler::Startable, network::PeerId, task_queue::TaskId};
 use async_channel::Sender;
 use libp2p::futures::TryStreamExt;
-use sqlx::Row;
+use sqlx::{sqlite::SqliteRow, Row};
 use std::{collections::HashMap, fmt::Debug, sync::Arc};
 use tokio::sync::RwLock;
 
@@ -118,9 +118,24 @@ impl DistributedKVStore {
     pub async fn set(&self, key: String, value: Value) -> Result<()> {
         sqlx::query("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)")
             .bind(key.clone())
-            .bind(value)
+            .bind(value.clone())
             .execute(&self.connection_pool)
             .await?;
+
+        // Send a set event to the bridge then await for a response
+        let (tx, rx) = async_channel::bounded(1);
+        if let Err(e) = self
+            .bridge
+            .publish(crate::event_bridge::PublishEvents::SetEvent(SetEvent {
+                key,
+                value,
+                result: tx.clone(),
+            }))
+            .await
+        {
+            error!(self.logger, "Failed to send set event"; "error" => ?e);
+            bail!(e)
+        };
         Ok(())
     }
 }
