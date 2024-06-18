@@ -425,7 +425,12 @@ impl Startable for P2PNetwork {
                         info!(self.logger, "received message {id} from {peer_id} on topic {topic}");
                         match serde_json::from_slice(&message.data) {
                             Ok(message) =>{
-                                if let Err(e) = self.bridge.publish(PublishEvents::HandlerEvent(message)).await {
+                                let handler_event = HandlerEvent {
+                                    peer_id: Some(peer_id.to_string()),
+                                    topic: Some(topic.to_string()),
+                                    message,
+                                };
+                                if let Err(e) = self.bridge.publish(PublishEvents::HandlerEvent(handler_event)).await {
                                     error!(self.logger, "failed to send message to handler: {e}");
                                 };
                             },
