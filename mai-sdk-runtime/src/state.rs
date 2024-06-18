@@ -19,7 +19,7 @@ use mai_sdk_plugins::{
     },
 };
 use serde::{Deserialize, Serialize};
-use slog::{info, Logger};
+use slog::{error, info, warn, Logger};
 
 use crate::system_monitor::SystemMonitor;
 
@@ -108,6 +108,10 @@ impl RunnableState {
 /// Holds various components of the runtime
 #[derive(Clone, Debug)]
 pub struct RuntimeState {
+    /// Logger
+    /// A logger instance that is used to log messages
+    logger: Logger,
+
     /// System Monitor
     /// Periodically checks the system's status and publishes it to the network
     system_monitor: SystemMonitor,
@@ -166,23 +170,10 @@ impl RuntimeState {
         let system_monitor =
             SystemMonitor::new(&args.logger, &p2p_network.peer_id(), &distributed_kv_store);
         RuntimeState {
+            logger: args.logger,
             system_monitor: system_monitor.clone(),
             p2p_network: p2p_network.clone(),
             distributed_task_queue: Some(distributed_task_queue.clone()),
-            event_bridge: event_bridge.clone(),
-        }
-    }
-
-    /// Create a new instance of the runtime state
-    pub fn new_relay(
-        system_monitor: &SystemMonitor,
-        p2p_network: &P2PNetwork,
-        event_bridge: &EventBridge,
-    ) -> Self {
-        RuntimeState {
-            system_monitor: system_monitor.clone(),
-            p2p_network: p2p_network.clone(),
-            distributed_task_queue: None,
             event_bridge: event_bridge.clone(),
         }
     }
@@ -212,36 +203,58 @@ impl RuntimeState {
 
 impl Startable for RuntimeState {
     async fn start(&self) -> Result<()> {
-        tokio::select! {
-            _ = {
-                let system_monitor = self.system_monitor.clone();
-                tokio::spawn(async move {
-                    system_monitor.start().await
-                })
-            } => {},
-            _ = {
-                let p2p_network = self.p2p_network.clone();
-                tokio::spawn(async move {
-                    p2p_network.start().await
-                })
-            } => {},
-            _ = {
-                let distributed_task_queue = self.distributed_task_queue.clone();
-                tokio::spawn(async move {
-                    if let Some(distributed_task_queue) = distributed_task_queue {
-                        distributed_task_queue.start().await
-                    } else {
-                        std::future::pending().await
-                    }
-                })
-            } => {},
-            _ = {
-                let event_bridge = self.event_bridge.clone();
-                tokio::spawn(async move {
-                    event_bridge.start().await
-                })
-            } => {},
+        // if anything exits or restarts, we restart the full loop
+        loop {
+            tokio::select! {
+                _ = {
+                    let system_monitor = self.system_monitor.clone();
+                    let logger = self.logger.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = system_monitor.start().await {
+                            error!(logger, "Failed to start system monitor: {:?}", e);
+                        } else {
+                            warn!(logger, "System monitor exited");
+                        }
+                    })
+                } => {},
+                _ = {
+                    let p2p_network = self.p2p_network.clone();
+                    let logger = self.logger.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = p2p_network.start().await {
+                            error!(logger, "Failed to start p2p network: {:?}", e);
+                        } else {
+                            warn!(logger, "P2P network exited");
+                        }
+                    })
+                } => {},
+                _ = {
+                    let distributed_task_queue = self.distributed_task_queue.clone();
+                    let logger = self.logger.clone();
+                    tokio::spawn(async move {
+                        if let Some(distributed_task_queue) = distributed_task_queue {
+                            if let Err(e) = distributed_task_queue.start().await {
+                                error!(logger, "Failed to start distributed task queue: {:?}", e);
+                            } else {
+                                warn!(logger, "Distributed task queue exited");
+                            }
+                        } else {
+                            std::future::pending().await
+                        }
+                    })
+                } => {},
+                _ = {
+                    let event_bridge = self.event_bridge.clone();
+                    let logger = self.logger.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = event_bridge.start().await {
+                            error!(logger, "Failed to start event bridge: {:?}", e);
+                        } else {
+                            warn!(logger, "Event bridge exited");
+                        }
+                    })
+                } => {},
+            }
         }
-        Ok(())
     }
 }
