@@ -423,11 +423,16 @@ impl Startable for P2PNetwork {
                     })) => {
                         let topic = message.topic.clone();
                         info!(self.logger, "received message {id} from {peer_id} on topic {topic}");
-                        if let Ok(message) = serde_json::from_slice(&message.data) {
-                            if let Err(e) = self.bridge.publish(PublishEvents::HandlerEvent(message)).await {
-                                error!(self.logger, "failed to send message to handler: {e}");
-                            };
-                        };
+                        match serde_json::from_slice(&message.data) {
+                            Ok(message) =>{
+                                if let Err(e) = self.bridge.publish(PublishEvents::HandlerEvent(message)).await {
+                                    error!(self.logger, "failed to send message to handler: {e}");
+                                };
+                            },
+                            Err(e) => {
+                                error!(self.logger, "failed to deserialize message: {e}");
+                            }
+                        }
                     },
                     SwarmEvent::NewExternalAddrOfPeer { peer_id, .. }  => {
                         info!(

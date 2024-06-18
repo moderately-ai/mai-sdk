@@ -1,10 +1,5 @@
 [workspace]
-members = [
-    "mai-sdk-core",
-    "mai-sdk-plugins",
-    "mai-sdk-runtime",
-    "mai-sdk-python",
-]
+members = ["mai-sdk-core", "mai-sdk-plugins", "mai-sdk-runtime"]
 exclude = []
 resolver = "2"
 
