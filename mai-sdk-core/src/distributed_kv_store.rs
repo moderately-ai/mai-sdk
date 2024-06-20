@@ -35,7 +35,6 @@ type Value = Vec<u8>;
 pub struct SetEvent {
     pub key: String,
     pub value: Value,
-    pub result: async_channel::Sender<Result<()>>,
 }
 
 #[derive(Debug, Clone)]
@@ -143,7 +142,6 @@ impl Startable for DistributedKVStore {
                     .publish(crate::event_bridge::PublishEvents::SetEvent(SetEvent {
                         key: key.clone(),
                         value,
-                        result: async_channel::bounded(1).0,
                     }))
                     .await
                 {

@@ -220,11 +220,7 @@ async fn handle_set_event(kad: &mut kad::Behaviour<MemoryStore>, event: SetEvent
         publisher: None,
         expires: None,
     };
-    if let Err(e) = kad.put_record(record, kad::Quorum::One) {
-        event.result.send(Err(e.into())).await?;
-    } else {
-        event.result.send(Ok(())).await?;
-    };
+    kad.put_record(record, kad::Quorum::One)?;
     Ok(())
 }
 
