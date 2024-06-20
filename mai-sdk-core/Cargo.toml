@@ -61,3 +61,12 @@ libp2p = { version = "0.53", features = [
 either = "^1.12"
 base64 = "^0.22"
 sqlx = { version = "0.7", features = ["runtime-tokio", "tls-rustls", "sqlite"] }
+gethostname = { version = "0.4" }
+nvml-wrapper = { version = "0.10" }
+sysinfo = { version = "0.30" }
+candle-core = { version = "0.5" }
+
+[features]
+default = []
+metal = ["candle-core/metal"]
+cuda = ["candle-core/cuda"]

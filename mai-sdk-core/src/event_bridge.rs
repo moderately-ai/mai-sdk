@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crate::{
     distributed_kv_store::{GetEvent, SetEvent},
-    handler::Startable,
     network::{HandlerEvent, NetworkMessage},
+    service::Startable,
 };
 use anyhow::Result;
 use async_channel::{Receiver, Sender};

@@ -1,5 +1,5 @@
 mod state;
-mod system_monitor;
+mod task;
 
-pub use state::{RunnableState, RuntimeState, RuntimeStateArgs, Task, TaskOutput};
-pub use system_monitor::{SystemMonitor, SystemStatus};
+pub use state::{RunnableState, RuntimeState, RuntimeStateArgs};
+pub use task::{Task, TaskOutput};

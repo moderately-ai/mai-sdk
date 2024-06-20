@@ -21,13 +21,9 @@ serde_json = { workspace = true }
 slog = { workspace = true }
 tokio = { workspace = true }
 
-# runtime dependencies
-nvml-wrapper = { version = "0.10" }
-gethostname = { version = "0.4" }
-sysinfo = { version = "0.30" }
-candle-core = { version = "0.5" }
+# runtime specific dependencies
 
 [features]
 default = []
-metal = ["candle-core/metal"]
-cuda = ["candle-core/cuda"]
+metal = ["mai-sdk-core/metal"]
+cuda = ["mai-sdk-core/cuda"]

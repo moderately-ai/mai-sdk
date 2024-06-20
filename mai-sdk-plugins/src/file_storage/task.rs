@@ -68,9 +68,10 @@ mod tests {
         let logger = slog::Logger::root(slog::Discard, slog::o!());
         let bridge = mai_sdk_core::event_bridge::EventBridge::new(&logger);
 
-        let distributed_kv_store =
-            mai_sdk_core::distributed_kv_store::DistributedKVStore::new(&logger, &bridge, false)
-                .await;
+        let distributed_kv_store = mai_sdk_core::distributed_kv_store::DistributedKVStore::new(
+            &logger, &bridge, ":memory:",
+        )
+        .await;
 
         let state = FileStorageState {
             distributed_kv_store,

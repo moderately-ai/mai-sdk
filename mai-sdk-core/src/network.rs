@@ -1,3 +1,12 @@
+/*
+This is an implementation of a network backing the MAI services. It uses the libp2p library to facilitate communication between nodes.
+Currently the network supports the following behaviors:
+- MDNS for local network peer discovery
+- Gossipsub for message propagation across the network
+- Kademlia for distributed key value store
+- Private network setup using pre shared keys
+*/
+
 use anyhow::{bail, Result};
 use async_channel::{Receiver, Sender};
 use base64::prelude::BASE64_STANDARD;
@@ -25,7 +34,7 @@ use tokio::{select, sync::RwLock};
 use crate::{
     distributed_kv_store::{GetEvent, SetEvent},
     event_bridge::{EventBridge, PublishEvents},
-    handler::Startable,
+    service::Startable,
 };
 
 use serde::{Deserialize, Serialize};
@@ -375,20 +384,6 @@ impl Startable for P2PNetwork {
                                 },
                             }
                         };
-
-                        // Publish the network to the local handler
-                        // NOTE: we do this to allow the local system to handle any jobs it has capacity for
-                        // TODO: COMMMENTED TO TEST A DIFFERENT APPROACH
-                        // let local_handler_event = HandlerEvent {
-                        //     peer_id: Some(self.peer_id()),
-                        //     topic: None,
-                        //     message: event,
-                        // };
-                        // if let Err(e) = self.bridge.publish(crate::event_bridge::PublishEvents::HandlerEvent(local_handler_event)).await {
-                        //     error!(self.logger, "failed to send message to handler: {e}");
-                        // } else {
-                        //     info!(self.logger, "notified local");
-                        // };
                     },
                     Err(e) => {
                         error!(self.logger, "publish rx channel closed: {e}");

@@ -1,6 +1,6 @@
+use crate::{distributed_kv_store::DistributedKVStore, network::PeerId, service::Startable};
 use anyhow::Result;
 use gethostname::gethostname;
-use mai_sdk_core::{distributed_kv_store::DistributedKVStore, handler::Startable, network::PeerId};
 use serde::{Deserialize, Serialize};
 use slog::{error, info, Logger};
 

@@ -103,7 +103,7 @@ mod tests {
         let distributed_kv_store = mai_sdk_core::distributed_kv_store::DistributedKVStore::new(
             &logger,
             &event_bridge,
-            false,
+            ":memory:",
         )
         .await;
         let task = TranscriptionPluginTaskTranscribe::new();

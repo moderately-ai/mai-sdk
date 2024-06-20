@@ -11,8 +11,3 @@ pub trait Handler {
     ) -> impl std::future::Future<Output = Result<NetworkMessage>> + Send;
 }
 
-/// Startable
-/// Implement this trait to allow the node to start the handler
-pub trait Startable {
-    fn start(&self) -> impl std::future::Future<Output = Result<()>> + Send;
-}

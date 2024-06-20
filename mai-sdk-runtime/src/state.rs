@@ -1,95 +1,42 @@
+use crate::{Task, TaskOutput};
 use anyhow::Result;
 use mai_sdk_core::{
     distributed_kv_store::DistributedKVStore,
     event_bridge::EventBridge,
-    handler::Startable,
     network::{Network, P2PNetwork, P2PNetworkConfig},
-    task_queue::{DistributedTaskQueue, Lifecycle, Runnable, TaskId},
+    service::Startable,
+    system_monitor::SystemMonitor,
+    task_queue::DistributedTaskQueue,
 };
 use mai_sdk_plugins::{
-    text_generation::{
-        TextGenerationPluginState, TextGenerationPluginTask, TextGenerationPluginTaskOutput,
-    },
-    transcription::{
-        TranscriptionPluginState, TranscriptionPluginTaskTranscribe,
-        TranscriptionPluginTaskTranscribeOutput,
-    },
-    web_scraping::{
-        WebScrapingPluginState, WebScrapingPluginTaskScrape, WebScrapingPluginTaskScrapeOutput,
-    },
+    text_generation::TextGenerationPluginState, transcription::TranscriptionPluginState,
+    web_scraping::WebScrapingPluginState,
 };
-use serde::{Deserialize, Serialize};
-use slog::{debug, error, info, warn, Logger};
+use slog::{debug, error, warn, Logger};
 
-use crate::system_monitor::SystemMonitor;
-
-/// Collection of the variants of tasks that can be executed
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum Task {
-    TextGeneration(TextGenerationPluginTask),
-    Transcribe(TranscriptionPluginTaskTranscribe),
-    Scrape(WebScrapingPluginTaskScrape),
-}
-
-/// Collection of the variants of task outputs
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub enum TaskOutput {
-    TextGeneration(TextGenerationPluginTaskOutput),
-    Transcription(TranscriptionPluginTaskTranscribeOutput),
-    Scrape(WebScrapingPluginTaskScrapeOutput),
-}
-
-impl Runnable<TaskOutput, RunnableState> for Task {
-    fn id(&self) -> TaskId {
-        match self {
-            Task::TextGeneration(task) => task.id(),
-            Task::Transcribe(task) => task.id(),
-            Task::Scrape(task) => task.id(),
-        }
-    }
-
-    async fn run(&self, state: RunnableState) -> Result<TaskOutput> {
-        info!(state.logger, "running task"; "task_id" => format!("{:?}", self.id()));
-        match self {
-            Task::TextGeneration(ollama_task) => Ok(TaskOutput::TextGeneration(
-                ollama_task.run(state.ollama_state).await?,
-            )),
-            Task::Transcribe(transcription_task) => transcription_task
-                .run(state.transcription_state)
-                .await
-                .map(TaskOutput::Transcription),
-            Task::Scrape(web_scraping_task) => Ok(TaskOutput::Scrape(
-                web_scraping_task.run(state.web_scraping_state).await?,
-            )),
-        }
-    }
-}
-
-impl Lifecycle<RunnableState> for Task {
-    async fn pre_submit(&self, state: &RunnableState) -> Result<()> {
-        match self {
-            Task::TextGeneration(ollama_task) => ollama_task.pre_submit(&state.ollama_state).await,
-            Task::Transcribe(transcription_task) => {
-                transcription_task
-                    .pre_submit(&state.transcription_state)
-                    .await
-            }
-            Task::Scrape(web_scraping_task) => {
-                web_scraping_task
-                    .pre_submit(&state.web_scraping_state)
-                    .await
-            }
-        }
-    }
-}
-
-/// State that is injected into the task's execution environment
+/// Application state required to inject into tasks
 #[derive(Debug, Clone)]
 pub struct RunnableState {
-    logger: Logger,
-    ollama_state: TextGenerationPluginState,
-    transcription_state: TranscriptionPluginState,
-    web_scraping_state: WebScrapingPluginState,
+    pub(crate) logger: Logger,
+    pub(crate) distributed_kv_store: DistributedKVStore,
+}
+
+impl From<RunnableState> for TextGenerationPluginState {
+    fn from(state: RunnableState) -> Self {
+        TextGenerationPluginState::new(&state.logger)
+    }
+}
+
+impl From<RunnableState> for TranscriptionPluginState {
+    fn from(state: RunnableState) -> Self {
+        TranscriptionPluginState::new(&state.logger, &state.distributed_kv_store)
+    }
+}
+
+impl From<RunnableState> for WebScrapingPluginState {
+    fn from(state: RunnableState) -> Self {
+        WebScrapingPluginState::new(&state.logger)
+    }
 }
 
 impl RunnableState {
@@ -97,9 +44,7 @@ impl RunnableState {
     pub fn new(logger: &Logger, distributed_kv_store: &DistributedKVStore) -> Self {
         RunnableState {
             logger: logger.clone(),
-            ollama_state: TextGenerationPluginState::new(logger),
-            transcription_state: TranscriptionPluginState::new(logger, distributed_kv_store),
-            web_scraping_state: WebScrapingPluginState::new(logger),
+            distributed_kv_store: distributed_kv_store.clone(),
         }
     }
 }
@@ -124,6 +69,10 @@ pub struct RuntimeState {
     /// A distributed task queue that allows for the execution of tasks across the network
     distributed_task_queue: Option<DistributedTaskQueue<Task, TaskOutput, RunnableState>>,
 
+    /// Distributed KV Store
+    /// A distributed key-value store that allows for the storage of data across the network
+    distributed_kv_store: DistributedKVStore,
+
     /// Event Bridge
     /// A bridge that allows for the communication of events across the network
     event_bridge: EventBridge,
@@ -136,6 +85,7 @@ pub struct RuntimeStateArgs {
     pub ping_interval: std::time::Duration,
     pub gossipsub_heartbeat_interval: std::time::Duration,
     pub psk: Option<String>,
+    pub sqlite_path: String,
 }
 
 impl RuntimeState {
@@ -159,7 +109,8 @@ impl RuntimeState {
             gossipsub_heartbeat_interval: args.gossipsub_heartbeat_interval,
             psk: args.psk,
         });
-        let distributed_kv_store = DistributedKVStore::new(&args.logger, &event_bridge, true).await;
+        let distributed_kv_store =
+            DistributedKVStore::new(&args.logger, &event_bridge, &args.sqlite_path).await;
         let distributed_task_queue = DistributedTaskQueue::new(
             &args.logger,
             &p2p_network.peer_id(),
@@ -175,6 +126,7 @@ impl RuntimeState {
             p2p_network: p2p_network.clone(),
             distributed_task_queue: Some(distributed_task_queue.clone()),
             event_bridge: event_bridge.clone(),
+            distributed_kv_store: distributed_kv_store.clone(),
         }
     }
 
@@ -206,6 +158,18 @@ impl Startable for RuntimeState {
         // if anything exits or restarts, we restart the full loop
         loop {
             tokio::select! {
+                _ = {
+                    let logger = self.logger.clone();
+                    let distributed_kv_store = self.distributed_kv_store.clone();
+                    tokio::spawn(async move {
+                        if let Err(e) = distributed_kv_store.start().await {
+                            error!(logger, "distributed kv store crashed: {:?}", e);
+                            debug!(logger, "trace: {:?}", e.backtrace());
+                        } else {
+                            warn!(logger, "Distributed KV store exited");
+                        }
+                    })
+                } => {}
                 _ = {
                     let system_monitor = self.system_monitor.clone();
                     let logger = self.logger.clone();

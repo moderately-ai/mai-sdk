@@ -32,10 +32,10 @@ use slog::{debug, error, info, Logger};
 use tokio::sync::RwLock;
 
 use crate::{
-    distributed_kv_store::{DistributedKVStore, OwnedTasks, TaskAssignments},
+    distributed_kv_store::{DistributedKVStore, OwnedTasks},
     event_bridge::{EventBridge, PublishEvents},
-    handler::Startable,
     network::{NetworkMessage, PeerId},
+    service::Startable,
 };
 
 const BID_ACCEPTANCE: &str = "bid_acceptance";
@@ -466,7 +466,8 @@ mod tests {
         }
 
         // Setup distributed kv store
-        let distributed_kv_store = DistributedKVStore::new(&logger, &event_bridge, false).await;
+        let distributed_kv_store =
+            DistributedKVStore::new(&logger, &event_bridge, ":memory:").await;
 
         // Setup the task queue
         let runnable_state = ();
