@@ -361,16 +361,20 @@ impl<
                                 let (task, tx) = task.unwrap();
 
                                 // Get the output from the distributed kv store
-                                if let Some(output) = distributed_kv_store
-                                    .get(format!("taskOutput/{}", task.id()))
-                                    .await?
-                                {
-                                    let output = serde_json::from_slice::<TTaskOutput>(&output)?;
-                                    tx.send(output).await?;
-                                } else {
-                                    error!(logger, "output not found for task"; "task_id" => task.id());
-                                };
-
+                                for _ in 0..5 {
+                                    if let Some(output) = distributed_kv_store
+                                        .get(format!("taskOutput/{}", task.id()))
+                                        .await?
+                                    {
+                                        let output =
+                                            serde_json::from_slice::<TTaskOutput>(&output)?;
+                                        tx.send(output).await?;
+                                        break;
+                                    } else {
+                                        tokio::time::sleep(std::time::Duration::from_millis(100))
+                                            .await;
+                                    }
+                                }
                                 Ok(())
                             }
                             TASK_ERROR => {
